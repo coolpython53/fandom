@@ -586,17 +586,31 @@ function fetchAndAppendSinglePage(title) {
     const textBlocks = [];
 
     /* MASSIVE CONTENT EXTRACTION FIX */
-    const contentNodes =
-      doc.querySelectorAll(
-        `
-        h1,h2,h3,h4,h5,h6,
-        p,
-        li,
-        blockquote,
-        dl,
-        dd
-        `
-      );
+/* CLEAN EXTRACTION (FIXES JUMBLED TEXT) */
+const root = doc.querySelector(".mw-parser-output");
+if (!root) return;
+
+const textBlocks = [];
+
+/* HEADERS (only real section structure) */
+root.querySelectorAll("h2, h3").forEach(node => {
+  let text = node.textContent.replace(/\[edit\]/gi, "").trim();
+  if (text.length > 2) {
+    textBlocks.push({ type: "header", text });
+  }
+});
+
+/* PARAGRAPHS ONLY (THIS fixes chaos) */
+root.querySelectorAll("p").forEach(node => {
+  let text = node.textContent
+    .replace(/\[[0-9]+\]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (text.length > 40) {
+    textBlocks.push({ type: "paragraph", text });
+  }
+});
 
     contentNodes.forEach(function(node) {
 

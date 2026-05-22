@@ -20,262 +20,173 @@
 
 <div class="max-w-7xl mx-auto p-6">
 
-  <!-- HEADER -->
   <div class="flex items-center justify-between mb-6">
     <h1 class="text-3xl font-black">WikiPDF Creator</h1>
 
-    <button onclick="buildPdfBook()" id="btn-build" disabled
-      class="bg-emerald-600 hover:bg-emerald-500 px-4 py-2 rounded-xl font-bold disabled:opacity-40">
+    <button onclick="buildPdfBook()" id="btn-build" disabled class="bg-emerald-600 hover:bg-emerald-500 px-4 py-2 rounded-xl font-bold disabled:opacity-40">
       Export PDF
     </button>
   </div>
 
-  <!-- INPUT -->
   <div class="bg-slate-900 rounded-2xl border border-slate-800 p-5 mb-6">
     <div class="flex gap-3">
-      <input id="wiki-url"
-        placeholder="https://fallout.fandom.com"
-        class="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 outline-none"/>
-
-      <button onclick="analyzeWiki()"
-        class="bg-indigo-600 hover:bg-indigo-500 px-5 rounded-xl font-bold">
-        Analyze Wiki
-      </button>
+      <input id="wiki-url" placeholder="https://fallout.fandom.com" class="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 outline-none" />
+      <button onclick="analyzeWiki()" class="bg-indigo-600 hover:bg-indigo-500 px-5 rounded-xl font-bold">Analyze Wiki</button>
     </div>
   </div>
 
-  <!-- MAIN -->
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-    <!-- LEFT -->
     <div class="bg-slate-900 rounded-2xl border border-slate-800 p-5">
-
-      <div class="flex justify-between mb-4">
-        <h2 class="font-black text-lg">Wiki Pages</h2>
-      </div>
-
-      <button onclick="addSelectedPages()"
-        class="bg-indigo-600 px-4 py-2 rounded-xl font-bold mb-3">
-        Add Selected
-      </button>
-
+      <h2 class="font-black text-lg mb-3">Wiki Pages</h2>
       <div id="scraped-pages-list" class="space-y-2 max-h-[500px] overflow-y-auto"></div>
     </div>
 
-    <!-- RIGHT -->
     <div class="bg-slate-900 rounded-2xl border border-slate-800 p-5">
-
-      <div class="flex justify-between mb-4">
-        <h2 class="font-black text-lg">PDF Chapters</h2>
-
-        <button onclick="clearAllPages()"
-          class="bg-rose-600 px-3 py-2 rounded-lg text-sm font-bold">
-          Clear All
-        </button>
-      </div>
-
+      <h2 class="font-black text-lg mb-3">PDF Chapters</h2>
       <div id="compilation-list"></div>
     </div>
 
   </div>
 
-  <!-- PREVIEW -->
   <div class="bg-slate-900 rounded-2xl border border-slate-800 p-6 mt-6">
-
     <h2 class="text-2xl font-black mb-6">Live Preview</h2>
 
-    <div id="print-sandbox-document" class="bg-white text-black p-10 rounded-xl">
-
-      <h1 class="text-4xl font-black text-center mb-10">Wiki Book</h1>
-
+    <div class="bg-white text-black rounded-xl p-10" id="print-sandbox-document">
       <div id="wiki-pages-container"></div>
-
     </div>
-
   </div>
 
 </div>
 
 <script>
-
 let currentApiUrl = "";
 let wikiPagesFound = [];
-let selectedPagesMap = {};
 let addedPagesQueue = [];
 
-/* JSONP */
-function jsonp(url, params, callback) {
-  const cb = "cb_" + Math.random().toString(36).slice(2);
-
-  window[cb] = (data) => {
-    delete window[cb];
-    document.body.removeChild(script);
-    callback(data);
-  };
-
+function jsonp(url, params, cb){
+  const cbName = "cb_" + Math.random();
+  window[cbName] = (d)=>{ delete window[cbName]; document.body.removeChild(s); cb(d); };
+  params.callback = cbName;
   params.format = "json";
-  params.callback = cb;
-
-  const query = Object.keys(params)
-    .map(k => `${k}=${encodeURIComponent(params[k])}`)
-    .join("&");
-
-  const script = document.createElement("script");
-  script.src = url + "?" + query;
-  document.body.appendChild(script);
+  const q = Object.entries(params).map(([k,v])=>k+"="+encodeURIComponent(v)).join("&");
+  const s = document.createElement("script");
+  s.src = url+"?"+q;
+  document.body.appendChild(s);
 }
 
-/* ANALYZE */
-function analyzeWiki() {
+function analyzeWiki(){
   const input = document.getElementById("wiki-url").value.trim();
-  const sub = input.split(".fandom.com")[0].replace("https://", "");
-
+  const url = new URL(input.startsWith("http")?input:"https://"+input);
+  const sub = url.hostname.split(".")[0];
   currentApiUrl = `https://${sub}.fandom.com/api.php`;
-
-  fetchPages();
+  fetchWikiListings();
 }
 
-/* FETCH LIST */
-function fetchPages() {
-  jsonp(currentApiUrl, {
-    action: "query",
-    list: "allpages",
-    aplimit: 100
-  }, res => {
-
-    wikiPagesFound = (res.query?.allpages || []).map(p => ({
-      title: p.title
-    }));
-
-    renderPages();
+function fetchWikiListings(){
+  jsonp(currentApiUrl,{action:"query",list:"allpages",aplimit:50},res=>{
+    wikiPagesFound = (res.query?.allpages||[]).map(p=>({title:p.title}));
+    renderExplorer();
   });
 }
 
-/* RENDER PAGES */
-function renderPages() {
+function renderExplorer(){
   const el = document.getElementById("scraped-pages-list");
-
-  el.innerHTML = wikiPagesFound.map(p => `
-    <label class="flex gap-2 p-2 bg-slate-950 rounded-lg border border-slate-800">
-      <input type="checkbox"
-        onchange="toggleSelect(this)"
-        data-title="${p.title}" />
-      <span>${p.title}</span>
-    </label>
+  el.innerHTML = wikiPagesFound.map(p=>`
+    <div class='p-2 bg-slate-950 rounded'>
+      <button onclick="fetchPage('${p.title.replace(/'/g,"\'")}')">${p.title}</button>
+    </div>
   `).join("");
 }
 
-/* SELECT */
-function toggleSelect(cb) {
-  selectedPagesMap[cb.dataset.title] = cb.checked;
-}
-
-/* ADD PAGES */
-function addSelectedPages() {
-  Object.keys(selectedPagesMap)
-    .filter(t => selectedPagesMap[t])
-    .forEach(fetchPage);
-}
-
-/* FETCH PAGE */
-function fetchPage(title) {
-
-  if (addedPagesQueue.some(p => p.title === title)) return;
-
-  jsonp(currentApiUrl, {
-    action: "parse",
-    page: title,
-    prop: "text"
-  }, res => {
-
-    if (!res.parse) return;
-
-    const doc = new DOMParser()
-      .parseFromString(res.parse.text["*"], "text/html");
-
+function fetchPage(title){
+  jsonp(currentApiUrl,{action:"parse",page:title,prop:"text"},res=>{
+    const html = res.parse.text["*"];
+    const doc = new DOMParser().parseFromString(html,"text/html");
     const root = doc.querySelector(".mw-parser-output");
-    if (!root) return;
+    if(!root) return;
 
-    const textBlocks = [];
-
-    root.querySelectorAll("h2, h3").forEach(h => {
-      const t = h.textContent.replace("[edit]", "").trim();
-      if (t) textBlocks.push({ type: "header", text: t });
+    const blocks=[];
+    root.querySelectorAll("p").forEach(p=>{
+      const t=p.textContent.trim();
+      if(t.length>40) blocks.push({type:"p",text:t});
     });
 
-    root.querySelectorAll("p").forEach(p => {
-      const t = p.textContent.replace(/\[[0-9]+\]/g, "").trim();
-      if (t.length > 40) textBlocks.push({ type: "paragraph", text: t });
+    const images=[];
+    root.querySelectorAll("img").forEach(i=>{
+      let src=i.src; if(src && images.length<4) images.push(src);
     });
 
-    const images = [];
-    doc.querySelectorAll("img").forEach(img => {
-      let src = img.src;
-      if (src && images.length < 5) images.push(src);
-    });
-
-    addedPagesQueue.push({ title, textBlocks, images });
-
+    addedPagesQueue.push({title,blocks,images});
     renderQueue();
     renderPreview();
   });
 }
 
-/* QUEUE */
-function renderQueue() {
-  const el = document.getElementById("compilation-list");
-
-  document.getElementById("btn-build").disabled = addedPagesQueue.length === 0;
-
-  el.innerHTML = addedPagesQueue.map((p, i) => `
-    <div class="p-2 bg-slate-950 rounded-lg mb-2 flex justify-between">
-      <span>${p.title}</span>
-      <button onclick="removePage(${i})" class="text-red-400">X</button>
+function renderQueue(){
+  document.getElementById("compilation-list").innerHTML = addedPagesQueue.map((p,i)=>`
+    <div class='p-2 bg-slate-950 mb-2 rounded'>
+      ${p.title} <button onclick='addedPagesQueue.splice(${i},1);renderQueue();renderPreview()'>X</button>
     </div>
   `).join("");
 }
 
-function removePage(i) {
-  addedPagesQueue.splice(i, 1);
-  renderQueue();
-  renderPreview();
-}
-
-function clearAllPages() {
-  addedPagesQueue = [];
-  renderQueue();
-  renderPreview();
-}
-
-/* PREVIEW */
-function renderPreview() {
+function renderPreview(){
   const el = document.getElementById("wiki-pages-container");
-
-  el.innerHTML = addedPagesQueue.map(p => `
-    <div class="mb-10">
-      <h2 class="text-2xl font-bold mb-3">${p.title}</h2>
-      ${p.textBlocks.map(b =>
-        b.type === "header"
-          ? `<h3 class="font-bold mt-4">${b.text}</h3>`
-          : `<p class="mb-2">${b.text}</p>`
-      ).join("")}
+  el.innerHTML = addedPagesQueue.map(p=>`
+    <div class='mb-10'>
+      <h2 class='text-2xl font-bold'>${p.title}</h2>
+      ${(p.images||[]).map(i=>`<img src='${i}' style='width:200px'/>`).join("")}
+      ${(p.blocks||[]).map(b=>`<p>${b.text}</p>`).join("")}
     </div>
   `).join("");
 }
 
-/* PDF */
-async function buildPdfBook() {
+// ✅ FIXED PDF ENGINE (MULTI PAGE)
+async function buildPdfBook(){
   const { jsPDF } = window.jspdf;
   const pdf = new jsPDF();
 
-  const canvas = await html2canvas(
-    document.getElementById("print-sandbox-document")
-  );
+  const pageW = 595.28;
+  const pageH = 841.89;
 
-  const img = canvas.toDataURL("image/png");
+  const temp = document.createElement("div");
+  temp.style.position="absolute";
+  temp.style.left="-99999px";
+  temp.style.width="800px";
+  document.body.appendChild(temp);
 
-  pdf.addImage(img, "PNG", 0, 0, 210, 297);
+  for(const page of addedPagesQueue){
+    temp.innerHTML = renderSingle(page);
+    const canvas = await html2canvas(temp,{scale:2,useCORS:true});
+    const img = canvas.toDataURL("image/jpeg",1.0);
+
+    let imgH = (canvas.height*pageW)/canvas.width;
+    let pos = 0;
+
+    pdf.addImage(img,"JPEG",0,pos,pageW,imgH);
+
+    let left = imgH-pageH;
+    while(left>0){
+      pos = left-imgH;
+      pdf.addPage();
+      pdf.addImage(img,"JPEG",0,pos,pageW,imgH);
+      left -= pageH;
+    }
+
+    pdf.addPage();
+  }
+
+  document.body.removeChild(temp);
   pdf.save("WikiBook.pdf");
+}
+
+function renderSingle(p){
+  return `<div style='font-family:Arial;padding:40px'>
+    <h1>${p.title}</h1>
+    ${(p.images||[]).map(i=>`<img src='${i}' style='width:100%'/>`).join("")}
+    ${(p.blocks||[]).map(b=>`<p>${b.text}</p>`).join("")}
+  </div>`;
 }
 
 </script>

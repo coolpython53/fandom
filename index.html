@@ -11,13 +11,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
 <style>
-::-webkit-scrollbar{
-  width:6px;
-}
-::-webkit-scrollbar-thumb{
-  background:#6366f1;
-  border-radius:10px;
-}
+::-webkit-scrollbar{ width:6px; }
+::-webkit-scrollbar-thumb{ background:#6366f1; border-radius:10px; }
 </style>
 </head>
 
@@ -25,122 +20,61 @@
 
 <div class="max-w-7xl mx-auto p-6">
 
+  <!-- HEADER -->
   <div class="flex items-center justify-between mb-6">
     <h1 class="text-3xl font-black">WikiPDF Creator</h1>
 
-    <button
-      onclick="buildPdfBook()"
-      id="btn-build"
-      disabled
-      class="bg-emerald-600 hover:bg-emerald-500 px-4 py-2 rounded-xl font-bold disabled:opacity-40"
-    >
+    <button onclick="buildPdfBook()" id="btn-build" disabled
+      class="bg-emerald-600 hover:bg-emerald-500 px-4 py-2 rounded-xl font-bold disabled:opacity-40">
       Export PDF
     </button>
   </div>
 
-  <!-- URL INPUT -->
+  <!-- INPUT -->
   <div class="bg-slate-900 rounded-2xl border border-slate-800 p-5 mb-6">
     <div class="flex gap-3">
-      <input
-        id="wiki-url"
+      <input id="wiki-url"
         placeholder="https://fallout.fandom.com"
-        class="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 outline-none"
-      />
+        class="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 outline-none"/>
 
-      <button
-        onclick="analyzeWiki()"
-        class="bg-indigo-600 hover:bg-indigo-500 px-5 rounded-xl font-bold"
-      >
+      <button onclick="analyzeWiki()"
+        class="bg-indigo-600 hover:bg-indigo-500 px-5 rounded-xl font-bold">
         Analyze Wiki
       </button>
     </div>
   </div>
 
-  <!-- PAGE EXPLORER -->
+  <!-- MAIN -->
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
+    <!-- LEFT -->
     <div class="bg-slate-900 rounded-2xl border border-slate-800 p-5">
 
-      <div class="flex items-center justify-between mb-4">
+      <div class="flex justify-between mb-4">
         <h2 class="font-black text-lg">Wiki Pages</h2>
-
-        <div class="flex gap-2">
-
-          <button
-            onclick="selectAllPages()"
-            class="bg-slate-800 hover:bg-slate-700 px-3 py-2 rounded-lg text-sm font-bold"
-          >
-            Select All
-          </button>
-
-          <button
-            onclick="clearSelections()"
-            class="bg-slate-800 hover:bg-slate-700 px-3 py-2 rounded-lg text-sm font-bold"
-          >
-            Clear
-          </button>
-
-        </div>
       </div>
 
-      <div class="flex gap-2 mb-4">
-        <input
-          id="search-query"
-          placeholder="Search pages..."
-          class="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 outline-none"
-        />
+      <button onclick="addSelectedPages()"
+        class="bg-indigo-600 px-4 py-2 rounded-xl font-bold mb-3">
+        Add Selected
+      </button>
 
-        <button
-          onclick="performSearch()"
-          class="bg-indigo-600 hover:bg-indigo-500 px-4 rounded-lg font-bold"
-        >
-          Search
-        </button>
-      </div>
-
-      <div
-        id="scraped-pages-list"
-        class="space-y-2 max-h-[500px] overflow-y-auto"
-      ></div>
-
-      <div class="mt-4 flex items-center justify-between">
-        <span id="selection-summary" class="text-sm text-slate-400">
-          0 pages selected
-        </span>
-
-        <button
-          onclick="addSelectedPages()"
-          class="bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded-xl font-bold"
-        >
-          Add Selected
-        </button>
-      </div>
-
+      <div id="scraped-pages-list" class="space-y-2 max-h-[500px] overflow-y-auto"></div>
     </div>
 
-    <!-- ADDED PAGES -->
+    <!-- RIGHT -->
     <div class="bg-slate-900 rounded-2xl border border-slate-800 p-5">
 
-      <div class="flex items-center justify-between mb-4">
+      <div class="flex justify-between mb-4">
         <h2 class="font-black text-lg">PDF Chapters</h2>
 
-        <button
-          onclick="clearAllPages()"
-          class="bg-rose-600 hover:bg-rose-500 px-3 py-2 rounded-lg text-sm font-bold"
-        >
+        <button onclick="clearAllPages()"
+          class="bg-rose-600 px-3 py-2 rounded-lg text-sm font-bold">
           Clear All
         </button>
       </div>
 
-      <div
-        id="compilation-list"
-        class="space-y-3 max-h-[500px] overflow-y-auto"
-      >
-        <div class="text-slate-500 text-sm">
-          No pages added yet.
-        </div>
-      </div>
-
+      <div id="compilation-list"></div>
     </div>
 
   </div>
@@ -150,23 +84,11 @@
 
     <h2 class="text-2xl font-black mb-6">Live Preview</h2>
 
-    <div class="bg-white text-black rounded-xl p-10" id="print-sandbox-document">
+    <div id="print-sandbox-document" class="bg-white text-black p-10 rounded-xl">
 
-      <div class="text-center mb-12">
-        <h1 class="text-5xl font-black mb-3">
-          Wiki Encyclopedia
-        </h1>
+      <h1 class="text-4xl font-black text-center mb-10">Wiki Book</h1>
 
-        <p class="text-slate-500">
-          Generated with WikiPDF Creator
-        </p>
-      </div>
-
-      <div id="wiki-pages-container">
-        <div class="text-center py-20 text-slate-400">
-          Pages will appear here...
-        </div>
-      </div>
+      <div id="wiki-pages-container"></div>
 
     </div>
 
@@ -175,853 +97,187 @@
 </div>
 
 <script>
-let currentWikiName = "";
-let currentApiUrl = "";
 
+let currentApiUrl = "";
 let wikiPagesFound = [];
 let selectedPagesMap = {};
 let addedPagesQueue = [];
 
-const FALLBACK_PAGES = [
-  { title: "Vault_Boy" },
-  { title: "Power_Armor" },
-  { title: "Fallout_Wiki" },
-  { title: "Brotherhood_of_Steel" },
-  { title: "Super_Mutant" }
-];
-
-window.addEventListener("DOMContentLoaded", () => {
-  lucide.createIcons();
-
-  document.getElementById("search-query")
-    .addEventListener("keydown", e => {
-      if (e.key === "Enter") performSearch();
-    });
-
-  document.getElementById("wiki-url")
-    .addEventListener("keydown", e => {
-      if (e.key === "Enter") analyzeWiki();
-    });
-});
-
+/* JSONP */
 function jsonp(url, params, callback) {
-  const callbackName =
-    "jsonp_callback_" + Math.round(100000 * Math.random());
+  const cb = "cb_" + Math.random().toString(36).slice(2);
 
-  window[callbackName] = function(data) {
-    delete window[callbackName];
+  window[cb] = (data) => {
+    delete window[cb];
     document.body.removeChild(script);
     callback(data);
   };
 
-  const queryParams = Object.assign({}, params, {
-    format: "json",
-    callback: callbackName
-  });
+  params.format = "json";
+  params.callback = cb;
 
-  const urlWithParams =
-    url +
-    "?" +
-    Object.keys(queryParams)
-      .map(function(key) {
-        return (
-          encodeURIComponent(key) +
-          "=" +
-          encodeURIComponent(queryParams[key])
-        );
-      })
-      .join("&");
+  const query = Object.keys(params)
+    .map(k => `${k}=${encodeURIComponent(params[k])}`)
+    .join("&");
 
   const script = document.createElement("script");
-  script.src = urlWithParams;
-
+  script.src = url + "?" + query;
   document.body.appendChild(script);
 }
 
+/* ANALYZE */
 function analyzeWiki() {
-  const input =
-    document.getElementById("wiki-url").value.trim();
+  const input = document.getElementById("wiki-url").value.trim();
+  const sub = input.split(".fandom.com")[0].replace("https://", "");
 
-  if (!input) return;
+  currentApiUrl = `https://${sub}.fandom.com/api.php`;
 
-  let subdomain = "";
-
-  if (input.includes("fandom.com")) {
-    try {
-      const urlObj = new URL(
-        input.startsWith("http")
-          ? input
-          : "https://" + input
-      );
-
-      subdomain = urlObj.hostname.split(".")[0];
-    } catch (e) {}
-  } else {
-    subdomain = input;
-  }
-
-  currentWikiName = subdomain.toLowerCase();
-
-  currentApiUrl =
-    "https://" + currentWikiName + ".fandom.com/api.php";
-
-  fetchWikiListings();
+  fetchPages();
 }
 
-async function fetchWikiListings() {
-
-  const listEl =
-    document.getElementById("scraped-pages-list");
-
-  listEl.innerHTML =
-    '<div class="text-slate-400 text-sm p-4">Loading wiki pages...</div>';
-
-  wikiPagesFound = [];
-
-  let continueToken = null;
-
-  async function loadBatch() {
-
-    return new Promise((resolve) => {
-
-      const params = {
-        action: "query",
-        list: "allpages",
-        aplimit: "500",
-        apfilterredir: "nonredirects"
-      };
-
-      if (continueToken) {
-        params.apcontinue = continueToken;
-      }
-
-      jsonp(currentApiUrl, params, function(response) {
-
-        if (
-          response &&
-          response.query &&
-          response.query.allpages
-        ) {
-
-          response.query.allpages.forEach(function(page) {
-
-            const title = page.title;
-
-            /* SKIP BAD PAGES */
-            if (
-              title.includes("(disambiguation)") ||
-              title.startsWith("Category:") ||
-              title.startsWith("File:") ||
-              title.startsWith("Template:") ||
-              title.startsWith("User:") ||
-              title.startsWith("Talk:") ||
-              title.startsWith("Forum:") ||
-              title.startsWith("MediaWiki:") ||
-              title.startsWith("Help:")
-            ) {
-              return;
-            }
-
-            wikiPagesFound.push({
-              title: title
-            });
-
-          });
-
-          listEl.innerHTML =
-            '<div class="text-slate-400 text-sm p-4">' +
-            'Loaded ' +
-            wikiPagesFound.length +
-            ' pages...' +
-            '</div>';
-
-          if (
-            response.continue &&
-            response.continue.apcontinue
-          ) {
-
-            continueToken =
-              response.continue.apcontinue;
-
-            setTimeout(() => {
-              resolve(loadBatch());
-            }, 5);
-
-          } else {
-
-            resolve();
-          }
-
-        } else {
-
-          resolve();
-        }
-      });
-
-    });
-  }
-
-  await loadBatch();
-
-  /* SMART SORT */
-  wikiPagesFound.sort(function(a, b) {
-
-    return a.title.localeCompare(
-      b.title,
-      undefined,
-      {
-        numeric: true,
-        sensitivity: "base"
-      }
-    );
-
-  });
-
-  /* ONLY RENDER FIRST 200 */
-  renderPageExplorer(0, 200);
-}
-function performSearch() {
-
-  const query =
-    document.getElementById("search-query")
-      .value
-      .trim();
-
-  if (!query) return;
-
-  const params = {
+/* FETCH LIST */
+function fetchPages() {
+  jsonp(currentApiUrl, {
     action: "query",
-    list: "search",
-    srsearch: query,
-    srlimit: "25"
-  };
+    list: "allpages",
+    aplimit: 100
+  }, res => {
 
-  jsonp(currentApiUrl, params, function(response) {
+    wikiPagesFound = (res.query?.allpages || []).map(p => ({
+      title: p.title
+    }));
 
-    if (
-      response &&
-      response.query &&
-      response.query.search
-    ) {
-
-      wikiPagesFound =
-        response.query.search.map(function(p) {
-          return {
-            title: p.title
-          };
-        });
-
-    } else {
-
-      wikiPagesFound =
-        FALLBACK_PAGES.filter(function(p) {
-          return p.title
-            .toLowerCase()
-            .includes(query.toLowerCase());
-        });
-    }
-
-    renderPageExplorer();
+    renderPages();
   });
 }
 
-wikiPagesFound.sort(function(a, b) {
+/* RENDER PAGES */
+function renderPages() {
+  const el = document.getElementById("scraped-pages-list");
 
-  return a.title.localeCompare(
-    b.title,
-    undefined,
-    {
-      numeric: true,
-      sensitivity: "base"
-    }
-  );
-
-});
-
-function togglePageSelect(checkbox) {
-
-  const title =
-    checkbox.getAttribute("data-title");
-
-  selectedPagesMap[title] =
-    checkbox.checked;
-
-  updateSelectionSummary();
+  el.innerHTML = wikiPagesFound.map(p => `
+    <label class="flex gap-2 p-2 bg-slate-950 rounded-lg border border-slate-800">
+      <input type="checkbox"
+        onchange="toggleSelect(this)"
+        data-title="${p.title}" />
+      <span>${p.title}</span>
+    </label>
+  `).join("");
 }
 
-function updateSelectionSummary() {
-
-  const count =
-    Object.keys(selectedPagesMap)
-      .filter(k => selectedPagesMap[k]).length;
-
-  document.getElementById("selection-summary")
-    .innerText =
-    count + " pages selected";
+/* SELECT */
+function toggleSelect(cb) {
+  selectedPagesMap[cb.dataset.title] = cb.checked;
 }
 
-function selectAllPages() {
-
-  wikiPagesFound.forEach(function(page) {
-    selectedPagesMap[page.title] = true;
-  });
-
-  updateSelectionSummary();
-
-  alert(
-    "Selected " +
-    wikiPagesFound.length +
-    " wiki pages."
-  );
-}
-
-function clearSelections() {
-
-  selectedPagesMap = {};
-
-  renderPageExplorer();
-}
-
+/* ADD PAGES */
 function addSelectedPages() {
-
-  const titles =
-    Object.keys(selectedPagesMap)
-      .filter(k => selectedPagesMap[k]);
-
-  titles.forEach(function(title) {
-
-    fetchAndAppendSinglePage(title);
-
-    selectedPagesMap[title] = false;
-  });
-
-  renderPageExplorer();
+  Object.keys(selectedPagesMap)
+    .filter(t => selectedPagesMap[t])
+    .forEach(fetchPage);
 }
 
-function fetchAndAppendSinglePage(title) {
+/* FETCH PAGE */
+function fetchPage(title) {
 
-  if (
-    addedPagesQueue.some(function(p) {
-      return p.title === title;
-    })
-  ) return;
+  if (addedPagesQueue.some(p => p.title === title)) return;
 
-  const params = {
+  jsonp(currentApiUrl, {
     action: "parse",
     page: title,
-    prop: "text|images|displaytitle",
-    redirects: "1"
-  };
+    prop: "text"
+  }, res => {
 
-  jsonp(currentApiUrl, params, function(response) {
+    if (!res.parse) return;
 
-    if (!response || !response.parse) return;
+    const doc = new DOMParser()
+      .parseFromString(res.parse.text["*"], "text/html");
 
-    const rawHtml =
-      response.parse.text["*"];
-
-    const parser = new DOMParser();
-
-    const doc =
-      parser.parseFromString(rawHtml, "text/html");
-
-    /* REMOVE GARBAGE */
-    [
-      "script",
-      "style",
-      ".navbox",
-      ".vertical-navbox",
-      ".portable-infobox",
-      ".toc",
-      ".reference",
-      ".reflist",
-      ".mw-editsection",
-      ".hatnote",
-      ".metadata",
-      ".gallery",
-      ".wikia-gallery",
-      ".thumbcaption",
-      ".license-description",
-      ".license-info",
-      ".mw-empty-elt",
-      ".noprint",
-      ".noexcerpt"
-    ].forEach(selector => {
-
-      doc.querySelectorAll(selector)
-        .forEach(el => el.remove());
-
-    });
-
-    /* SKIP DISAMBIGUATION PAGES */
-    const bodyText =
-      doc.body.textContent.toLowerCase();
-
-    if (
-      bodyText.includes("disambiguation page") ||
-      bodyText.includes("may refer to:")
-    ) {
-
-      console.log(
-        "Skipped disambiguation:",
-        title
-      );
-
-      return;
-    }
-
-    /* SKIP REDIRECT PAGES */
-    if (
-      bodyText.includes("#redirect")
-    ) {
-
-      console.log(
-        "Skipped redirect:",
-        title
-      );
-
-      return;
-    }
+    const root = doc.querySelector(".mw-parser-output");
+    if (!root) return;
 
     const textBlocks = [];
 
-    /* CLEAN EXTRACTION (ONLY SYSTEM) */
-const root = doc.querySelector(".mw-parser-output");
-if (!root) return;
-
-const textBlocks = [];
-
-/* HEADERS */
-root.querySelectorAll("h2, h3").forEach(node => {
-  let text = node.textContent.replace(/\[edit\]/gi, "").trim();
-  if (text.length > 2) {
-    textBlocks.push({ type: "header", text });
-  }
-});
-
-/* PARAGRAPHS */
-root.querySelectorAll("p").forEach(node => {
-  let text = node.textContent
-    .replace(/\[[0-9]+\]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-
-  if (text.length > 40) {
-    textBlocks.push({ type: "paragraph", text });
-  }
-});
-
-/* PARAGRAPHS ONLY (THIS fixes chaos) */
-root.querySelectorAll("p").forEach(node => {
-  let text = node.textContent
-    .replace(/\[[0-9]+\]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-
-  if (text.length > 40) {
-    textBlocks.push({ type: "paragraph", text });
-  }
-});
-
-    contentNodes.forEach(function(node) {
-
-      let text =
-        node.textContent
-          .replace(/\[[0-9]+\]/g, "")
-          .replace(/\s+/g, " ")
-          .trim();
-
-      if (!text) return;
-
-      /* ignore tiny junk */
-      if (text.length < 20) return;
-
-      const tag =
-        node.tagName.toLowerCase();
-
-      /* headings */
-      if (tag.startsWith("h")) {
-
-        textBlocks.push({
-          type: "header",
-          text: text
-        });
-
-      }
-
-      /* lists */
-      else if (tag === "li") {
-
-        textBlocks.push({
-          type: "list",
-          text: "• " + text
-        });
-
-      }
-
-      /* paragraphs */
-      else {
-
-        textBlocks.push({
-          type: "paragraph",
-          text: text
-        });
-
-      }
-
+    root.querySelectorAll("h2, h3").forEach(h => {
+      const t = h.textContent.replace("[edit]", "").trim();
+      if (t) textBlocks.push({ type: "header", text: t });
     });
 
-    /* FALLBACK IF PAGE EXTRACTION FAILS */
-    if (textBlocks.length < 3) {
+    root.querySelectorAll("p").forEach(p => {
+      const t = p.textContent.replace(/\[[0-9]+\]/g, "").trim();
+      if (t.length > 40) textBlocks.push({ type: "paragraph", text: t });
+    });
 
-      const fallbackText =
-        bodyText
-          .replace(/\s+/g, " ")
-          .trim()
-          .slice(0, 6000);
-
-      textBlocks.push({
-        type: "paragraph",
-        text: fallbackText
-      });
-    }
-
-    /* IMAGE FIX */
     const images = [];
-
-    const imgNodes =
-      doc.querySelectorAll("img");
-
-    imgNodes.forEach(function(img) {
-
-      let src =
-        img.getAttribute("src") ||
-        img.getAttribute("data-src") ||
-        img.getAttribute("data-image-name");
-
-      if (!src) return;
-
-      /* fix protocol-relative urls */
-      if (src.startsWith("//")) {
-        src = "https:" + src;
-      }
-
-      /* skip tiny icons */
-      if (
-        src.includes("sprite") ||
-        src.includes("icon") ||
-        src.includes(".svg")
-      ) return;
-
-      /* fix fandom image scaling */
-      src = src.replace(/\/revision\/latest.*/, "");
-
-      if (
-        !images.includes(src) &&
-        images.length < 6
-      ) {
-
-        images.push(src);
-      }
-
+    doc.querySelectorAll("img").forEach(img => {
+      let src = img.src;
+      if (src && images.length < 5) images.push(src);
     });
 
-    /* add fallback image if none */
-    if (images.length === 0) {
+    addedPagesQueue.push({ title, textBlocks, images });
 
-      images.push(
-        "https://images.unsplash.com/photo-1515879218367-8466d910aaa4?q=80&w=1200&auto=format&fit=crop"
-      );
-    }
-
-    addedPagesQueue.push({
-      title: title,
-      textBlocks: textBlocks,
-      images: images
-    });
-
-    /* SORT ALPHABETICALLY
-       while preserving grouped namespaces */
-    addedPagesQueue.sort(function(a, b) {
-
-      const cleanA =
-        a.title.toLowerCase();
-
-      const cleanB =
-        b.title.toLowerCase();
-
-      return cleanA.localeCompare(
-        cleanB,
-        undefined,
-        {
-          numeric: true,
-          sensitivity: "base"
-        }
-      );
-    });
-
-    renderCompilationQueue();
-
-    updateSandboxPreviews();
-
+    renderQueue();
+    renderPreview();
   });
 }
-function renderPageExplorer(start = 0, limit = 200) {
 
-  const listEl =
-    document.getElementById("scraped-pages-list");
+/* QUEUE */
+function renderQueue() {
+  const el = document.getElementById("compilation-list");
 
-  const visiblePages =
-    wikiPagesFound.slice(start, start + limit);
+  document.getElementById("btn-build").disabled = addedPagesQueue.length === 0;
 
-  if (visiblePages.length === 0) {
-
-    listEl.innerHTML =
-      '<div class="text-slate-500 text-sm">No pages found.</div>';
-
-    return;
-  }
-
-  let html = "";
-
-  visiblePages.forEach(function(page) {
-
-    const checked =
-      selectedPagesMap[page.title]
-        ? "checked"
-        : "";
-
-    html +=
-      '<label class="flex items-center gap-3 bg-slate-950 border border-slate-800 rounded-xl p-3 hover:border-indigo-500 cursor-pointer">' +
-
-      '<input type="checkbox" ' +
-      checked +
-      ' data-title="' + page.title + '" onchange="togglePageSelect(this)" />' +
-
-      '<div class="font-semibold text-sm break-all">' +
-      page.title.replace(/_/g, " ") +
-      '</div>' +
-
-      '</label>';
-  });
-
-  /* LOAD MORE BUTTON */
-  if (start + limit < wikiPagesFound.length) {
-
-    html +=
-      '<button onclick="renderPageExplorer(' +
-      (start + limit) +
-      ', 200)" ' +
-      'class="w-full bg-indigo-600 hover:bg-indigo-500 rounded-xl p-3 font-bold mt-4">' +
-      'Load More Pages (' +
-      (wikiPagesFound.length - (start + limit)) +
-      ' remaining)' +
-      '</button>';
-  }
-
-  listEl.innerHTML = html;
-
-  updateSelectionSummary();
-}
-function renderCompilationQueue() {
-
-  const queueEl =
-    document.getElementById("compilation-list");
-
-  if (addedPagesQueue.length === 0) {
-
-    queueEl.innerHTML =
-      '<div class="text-slate-500 text-sm">No pages added yet.</div>';
-
-    document.getElementById("btn-build")
-      .disabled = true;
-
-    return;
-  }
-
-  document.getElementById("btn-build")
-    .disabled = false;
-
-  let html = "";
-
-  addedPagesQueue.forEach(function(page, i) {
-
-    html +=
-      '<div class="bg-slate-950 border border-slate-800 rounded-xl p-3 flex items-center justify-between">' +
-
-      '<div>' +
-
-      '<div class="font-bold text-sm">' +
-      page.title.replace(/_/g, " ") +
-      '</div>' +
-
-      '<div class="text-xs text-indigo-400">' +
-      page.textBlocks.length +
-      ' content blocks</div>' +
-
-      '</div>' +
-
-      '<button onclick="deleteQueueItem(' + i + ')" class="bg-rose-600 hover:bg-rose-500 px-3 py-1 rounded-lg text-xs font-bold">Delete</button>' +
-
-      '</div>';
-  });
-
-  queueEl.innerHTML = html;
+  el.innerHTML = addedPagesQueue.map((p, i) => `
+    <div class="p-2 bg-slate-950 rounded-lg mb-2 flex justify-between">
+      <span>${p.title}</span>
+      <button onclick="removePage(${i})" class="text-red-400">X</button>
+    </div>
+  `).join("");
 }
 
-function deleteQueueItem(index) {
-
-  addedPagesQueue.splice(index, 1);
-
-  renderCompilationQueue();
-
-  updateSandboxPreviews();
+function removePage(i) {
+  addedPagesQueue.splice(i, 1);
+  renderQueue();
+  renderPreview();
 }
 
 function clearAllPages() {
-
   addedPagesQueue = [];
-
-  renderCompilationQueue();
-
-  updateSandboxPreviews();
+  renderQueue();
+  renderPreview();
 }
 
-function updateSandboxPreviews() {
+/* PREVIEW */
+function renderPreview() {
+  const el = document.getElementById("wiki-pages-container");
 
-  const container =
-    document.getElementById("wiki-pages-container");
-
-  if (addedPagesQueue.length === 0) {
-
-    container.innerHTML =
-      '<div class="text-center py-20 text-slate-400">Pages will appear here...</div>';
-
-    return;
-  }
-
-  let html = "";
-
-  addedPagesQueue.forEach(function(page, i) {
-
-    html +=
-      '<div class="mb-20">' +
-
-      '<h2 class="text-4xl font-black mb-6">' +
-      page.title.replace(/_/g, " ") +
-      '</h2>';
-
-    if (page.images.length > 0) {
-
-      html +=
-        '<div class="grid grid-cols-2 gap-4 mb-6">';
-
-      page.images.forEach(function(img) {
-
-        html +=
-          '<img src="' + img + '" class="rounded-xl border border-slate-300 w-full h-52 object-cover" />';
-      });
-
-      html += '</div>';
-    }
-
-    page.textBlocks.forEach(function(block) {
-
-      if (block.type === "header") {
-
-        html +=
-          '<h3 class="text-2xl font-bold mt-8 mb-3">' +
-          block.text +
-          '</h3>';
-
-      } else if (block.type === "list") {
-
-        html +=
-          '<p class="ml-5 mb-2 text-base">' +
-          block.text +
-          '</p>';
-
-      } else {
-
-        html +=
-          '<p class="mb-4 text-base leading-relaxed">' +
-          block.text +
-          '</p>';
-      }
-    });
-
-    html += '</div>';
-  });
-
-  container.innerHTML = html;
+  el.innerHTML = addedPagesQueue.map(p => `
+    <div class="mb-10">
+      <h2 class="text-2xl font-bold mb-3">${p.title}</h2>
+      ${p.textBlocks.map(b =>
+        b.type === "header"
+          ? `<h3 class="font-bold mt-4">${b.text}</h3>`
+          : `<p class="mb-2">${b.text}</p>`
+      ).join("")}
+    </div>
+  `).join("");
 }
 
+/* PDF */
 async function buildPdfBook() {
-
-  if (addedPagesQueue.length === 0) return;
-
   const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF();
 
-  const pdf = new jsPDF({
-    orientation: "portrait",
-    unit: "pt",
-    format: "a4"
-  });
-
-  const element =
-    document.getElementById("print-sandbox-document");
-
-  const canvas =
-    await html2canvas(element, {
-      scale: 2,
-      useCORS: true
-    });
-
-  const imgData =
-    canvas.toDataURL("image/jpeg", 1.0);
-
-  const imgWidth = 595.28;
-
-  const pageHeight = 841.89;
-
-  const imgHeight =
-    (canvas.height * imgWidth) / canvas.width;
-
-  let heightLeft = imgHeight;
-
-  let position = 0;
-
-  pdf.addImage(
-    imgData,
-    "JPEG",
-    0,
-    position,
-    imgWidth,
-    imgHeight
+  const canvas = await html2canvas(
+    document.getElementById("print-sandbox-document")
   );
 
-  heightLeft -= pageHeight;
+  const img = canvas.toDataURL("image/png");
 
-  while (heightLeft > 0) {
-
-    position = heightLeft - imgHeight;
-
-    pdf.addPage();
-
-    pdf.addImage(
-      imgData,
-      "JPEG",
-      0,
-      position,
-      imgWidth,
-      imgHeight
-    );
-
-    heightLeft -= pageHeight;
-  }
-
+  pdf.addImage(img, "PNG", 0, 0, 210, 297);
   pdf.save("WikiBook.pdf");
 }
+
 </script>
 
 </body>

@@ -1,1162 +1,533 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>WikiPDF Creator</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <!-- Tailwind CSS -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Lucide Icons -->
-  <script src="https://unpkg.com/lucide@latest"></script>
-  <!-- jsPDF & html2canvas -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<title>Genshin Impact Wiki Reader</title>
 
-  <style>
-    /* Custom Scrollbar styling */
-    ::-webkit-scrollbar {
-      width: 8px;
-    }
-    ::-webkit-scrollbar-track {
-      background: #0f172a;
-    }
-    ::-webkit-scrollbar-thumb {
-      background: #4f46e5;
-      border-radius: 9999px;
-    }
-    ::-webkit-scrollbar-thumb:hover {
-      background: #6366f1;
-    }
-  </style>
+<style>
+body{
+    background:white;
+    color:black;
+    font-family:serif;
+    margin:20px;
+    line-height:1.5;
+}
+
+input{
+    width:300px;
+    padding:4px;
+}
+
+button{
+    padding:4px 8px;
+}
+
+img{
+    display:none;
+}
+
+table{
+    border-collapse:collapse;
+    width:100%;
+    display:block;
+    overflow:auto;
+    margin-top:10px;
+    margin-bottom:10px;
+}
+
+td, th{
+    border:1px solid black;
+    padding:4px;
+    vertical-align:top;
+}
+
+a{
+    color:blue;
+    cursor:pointer;
+    text-decoration:underline;
+}
+
+.page{
+    margin-top:40px;
+}
+
+.loading{
+    color:gray;
+}
+
+.hidden{
+    display:none;
+}
+</style>
 </head>
+<body>
 
-<body class="bg-slate-950 text-slate-100 min-h-screen font-sans antialiased">
+<h1>Genshin Impact Wiki Reader</h1>
 
-  <!-- Safety Batch Confirmation Modal -->
-  <div id="safety-modal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center hidden">
-    <div class="bg-slate-900 border border-slate-800 p-8 rounded-2xl max-w-md w-full mx-4 shadow-2xl space-y-6">
-      <div class="flex items-center gap-4">
-        <div class="p-3 bg-amber-500/20 text-amber-400 rounded-xl">
-          <i data-lucide="shield-alert" class="w-8 h-8"></i>
-        </div>
-        <div>
-          <h3 class="text-xl font-black">Large Import Warning</h3>
-          <p class="text-xs text-slate-400">Protecting browser stability</p>
-        </div>
-      </div>
-      
-      <p class="text-sm text-slate-300 leading-relaxed">
-        This wiki contains <span id="safety-count" class="font-bold text-amber-400">0</span> articles. Parsing too many articles at once with graphics, charts, and tables can slow down or crash your web browser.
-      </p>
+<input
+    id="search"
+    placeholder="Search page..."
+>
 
-      <div class="space-y-2.5">
-        <button onclick="startSafeBatchImport(100)" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-3 rounded-xl font-bold transition text-sm flex items-center justify-center gap-2">
-          <i data-lucide="sparkles" class="w-4 h-4"></i>
-          Import First 100 Articles (Recommended)
-        </button>
-        <button onclick="startSafeBatchImport(300)" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 py-3 rounded-xl font-semibold transition text-sm flex items-center justify-center gap-2">
-          <i data-lucide="layers" class="w-4 h-4"></i>
-          Import First 300 Articles
-        </button>
-        <button onclick="startSafeBatchImport(-1)" class="w-full bg-transparent hover:bg-rose-950/20 text-rose-400 border border-rose-900/50 hover:border-rose-700 py-2.5 rounded-xl text-xs font-semibold transition">
-          Import All Anyway (Slows down browser)
-        </button>
-        <button onclick="closeSafetyModal()" class="w-full bg-transparent hover:bg-slate-800 text-slate-400 py-2.5 rounded-xl text-xs font-medium transition">
-          Cancel
-        </button>
-      </div>
-    </div>
-  </div>
+<button onclick="searchPage()">
+Search
+</button>
 
-  <!-- Dynamic Batch Progress Overlay -->
-  <div id="import-overlay" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center hidden">
-    <div class="bg-slate-900 border border-slate-800 p-8 rounded-2xl max-w-md w-full mx-4 shadow-2xl space-y-6">
-      <div class="flex items-center gap-4">
-        <div class="p-3 bg-indigo-600/20 text-indigo-400 rounded-xl animate-pulse">
-          <i data-lucide="download-cloud" class="w-8 h-8"></i>
-        </div>
-        <div>
-          <h3 class="text-xl font-black">Importing Wiki Articles</h3>
-          <p class="text-xs text-slate-400">Compiling your book queue...</p>
-        </div>
-      </div>
-      
-      <!-- Progress Bar -->
-      <div class="space-y-2">
-        <div class="flex justify-between text-sm font-semibold">
-          <span class="text-indigo-400" id="import-status-text">Processing pages...</span>
-          <span id="import-percentage">0%</span>
-        </div>
-        <div class="w-full bg-slate-950 h-3 rounded-full overflow-hidden border border-slate-800">
-          <div id="import-progress-bar" class="bg-gradient-to-r from-indigo-500 to-emerald-500 h-full w-0 transition-all duration-150"></div>
-        </div>
-      </div>
+<button onclick="loadAllPages()">
+Load Entire Wiki
+</button>
 
-      <div class="flex items-center justify-between text-xs text-slate-400 bg-slate-950/50 p-3 rounded-xl border border-slate-900">
-        <span>Current Active Workers:</span>
-        <span id="import-current-title" class="font-semibold text-slate-200">6 Parallel Connections</span>
-      </div>
+<p id="status"></p>
 
-      <button onclick="cancelBatchImport()" class="w-full bg-slate-800 hover:bg-rose-900/40 hover:text-rose-200 hover:border-rose-500/30 border border-transparent py-3 rounded-xl font-bold transition-all text-slate-300">
-        Cancel Import
-      </button>
-    </div>
-  </div>
+<div id="content"></div>
 
-  <div class="max-w-7xl mx-auto p-4 md:p-8">
+<script>
+const API =
+"https://genshin-impact.fandom.com/api.php";
 
-    <!-- Header Section -->
-    <header class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8 border-b border-slate-800 pb-6">
-      <div class="flex items-center gap-3">
-        <div class="bg-indigo-600 p-2.5 rounded-xl text-white shadow-lg shadow-indigo-500/20">
-          <i data-lucide="book-open" class="w-8 h-8"></i>
-        </div>
-        <div>
-          <h1 class="text-3xl font-black bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-200 to-indigo-400">
-            WikiPDF Creator
-          </h1>
-          <p class="text-xs text-slate-400 mt-1">Transform Genshin Impact / MediaWiki articles into beautiful multi-page PDFs</p>
-        </div>
-      </div>
+const content =
+document.getElementById("content");
 
-      <div class="flex items-center gap-3 w-full sm:w-auto">
-        <button id="btn-clear" onclick="clearQueue()" class="flex-1 sm:flex-none justify-center items-center gap-2 border border-slate-800 bg-slate-900/50 hover:bg-slate-900 text-slate-300 hover:text-white px-4 py-2.5 rounded-xl font-semibold transition-all duration-200 hidden">
-          <i data-lucide="trash-2" class="w-4 h-4"></i>
-          Clear Book
-        </button>
-        <button onclick="buildPdfBook()" id="btn-build" disabled class="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 px-6 py-2.5 rounded-xl font-bold shadow-lg shadow-emerald-900/20 disabled:opacity-30 disabled:pointer-events-none transition-all duration-300 transform active:scale-95">
-          <i data-lucide="download" class="w-5 h-5"></i>
-          Export PDF Book
-        </button>
-      </div>
-    </header>
+const statusText =
+document.getElementById("status");
 
-    <!-- Source Search and Input Setup -->
-    <div class="bg-gradient-to-b from-slate-900 to-slate-900/80 rounded-2xl border border-slate-800 p-6 mb-8 shadow-xl">
-      <label class="block text-sm font-bold text-slate-300 mb-2 flex items-center gap-2">
-        <i data-lucide="globe" class="w-4 h-4 text-indigo-400"></i>
-        Enter Fandom Wiki Base URL:
-      </label>
-      <div class="flex flex-col sm:flex-row gap-3">
-        <div class="relative flex-1">
-          <input 
-            id="wiki-url" 
-            type="text"
-            value="https://genshin-impact.fandom.com"
-            placeholder="e.g. https://genshin-impact.fandom.com or https://minecraft.fandom.com" 
-            class="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl pl-4 pr-10 py-3.5 outline-none transition-all text-slate-100 placeholder-slate-500" 
-          />
-        </div>
-        <button onclick="analyzeWiki()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-indigo-900/30 whitespace-nowrap">
-          <i data-lucide="search" class="w-5 h-5"></i>
-          Analyze Wiki
-        </button>
-      </div>
-      <p id="wiki-status-text" class="text-xs text-slate-400 mt-2 flex items-center gap-1">
-        <i data-lucide="info" class="w-3.5 h-3.5 text-indigo-400"></i>
-        Fandom API uses secure JSONP callbacks. Enter a wiki URL above to fetch content.
-      </p>
-    </div>
+/* =========================
+   SEARCH
+========================= */
 
-    <!-- Dual Column Browser Layout -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+async function searchPage(){
 
-      <!-- Left Column: Available Wiki Pages -->
-      <div class="bg-slate-900 rounded-2xl border border-slate-800 p-6 shadow-xl flex flex-col h-[520px]">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-800">
-          <h2 class="font-bold text-lg flex items-center gap-2">
-            <i data-lucide="list-video" class="w-5 h-5 text-indigo-400"></i>
-            Available Articles (<span id="avail-count">0</span>)
-          </h2>
-          <div class="flex items-center gap-2">
-            <div class="relative w-32 sm:w-36">
-              <input id="article-filter" oninput="filterArticles()" placeholder="Filter..." class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-xs outline-none" />
-            </div>
-            <button id="btn-add-all" onclick="addAllArticles()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition duration-150 hidden flex items-center gap-1 shrink-0 shadow-sm shadow-indigo-900/25">
-              <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i>
-              Add All
-            </button>
-          </div>
-        </div>
-        
-        <div id="loader-explorer" class="hidden flex-col items-center justify-center flex-1 space-y-3">
-          <div class="w-10 h-10 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin"></div>
-          <p class="text-xs text-slate-400">Scanning index database...</p>
-        </div>
+    const query =
+    document.getElementById("search")
+    .value
+    .trim();
 
-        <div id="scraped-pages-list" class="space-y-2 overflow-y-auto flex-1 pr-1 text-sm">
-          <div class="text-center py-12 text-slate-500">
-            <i data-lucide="sparkles" class="w-12 h-12 mx-auto mb-3 opacity-30"></i>
-            Analyze a Wiki domain to begin crawling articles
-          </div>
-        </div>
-      </div>
+    if(!query) return;
 
-      <!-- Right Column: Selected Book Pages -->
-      <div class="bg-slate-900 rounded-2xl border border-slate-800 p-6 shadow-xl flex flex-col h-[520px]">
-        <div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-800">
-          <h2 class="font-bold text-lg flex items-center gap-2">
-            <i data-lucide="layers" class="w-5 h-5 text-emerald-400"></i>
-            Selected Chapters (<span id="added-count">0</span>)
-          </h2>
-          <span class="text-xs text-slate-400 font-medium text-right">Adjust chapter order with arrows</span>
-        </div>
+    statusText.textContent =
+    "Searching...";
 
-        <div id="compilation-list" class="space-y-2 overflow-y-auto flex-1 pr-1 text-sm">
-          <div class="text-center py-12 text-slate-500 h-full flex flex-col items-center justify-center">
-            <i data-lucide="file-plus" class="w-12 h-12 mb-3 opacity-30 text-emerald-400"></i>
-            <span>Add pages from the left menu to compile your custom PDF book!</span>
-          </div>
-        </div>
-      </div>
+    const url =
+    API +
+    "?origin=*" +
+    "&action=query" +
+    "&list=search" +
+    "&srsearch=" +
+    encodeURIComponent(query) +
+    "&format=json";
 
-    </div>
+    const response =
+    await fetch(url);
 
-    <!-- Live Preview Display Panel -->
-    <div class="bg-slate-900 rounded-2xl border border-slate-800 p-6 shadow-xl">
-      <div class="flex items-center justify-between border-b border-slate-800 pb-4 mb-6">
-        <div class="flex items-center gap-2">
-          <i data-lucide="eye" class="w-5 h-5 text-indigo-400 animate-pulse"></i>
-          <h2 class="text-xl font-bold">WYSIWYG PDF Live Preview</h2>
-        </div>
-        <p class="text-xs text-slate-400">This simulates page layouts exactly as they compile</p>
-      </div>
+    const data =
+    await response.json();
 
-      <div class="bg-slate-950 p-4 md:p-8 rounded-xl overflow-x-auto">
-        <!-- Render Sandbox matching Standard A4 Ratio inside container dynamically -->
-        <div class="mx-auto bg-white text-black shadow-2xl p-2 md:p-10 max-w-[800px] min-h-[500px]" id="print-sandbox-document">
-          <div id="wiki-pages-container">
-            <div class="text-center py-16 text-slate-400 italic">
-              <i data-lucide="book" class="w-16 h-16 mx-auto mb-4 opacity-10"></i>
-              No chapters loaded. Select pages from the lists above to generate document preview layout blocks.
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    if(
+        !data.query ||
+        !data.query.search ||
+        data.query.search.length === 0
+    ){
+        statusText.textContent =
+        "No results.";
+        return;
+    }
 
-  </div>
+    const firstResult =
+    data.query.search[0];
 
-  <!-- Notification Banner Modal -->
-  <div id="toast" class="fixed bottom-6 right-6 transform translate-y-20 opacity-0 bg-indigo-600 text-white font-semibold py-3 px-6 rounded-xl shadow-2xl transition-all duration-300 flex items-center gap-3 z-50">
-    <span id="toast-message"></span>
-  </div>
+    content.innerHTML = "";
 
-  <script>
-    let currentApiUrl = "";
-    let wikiPagesFound = [];
-    let addedPagesQueue = [];
-    let isBatchImporting = false;
-    let batchImportQueue = [];
-    let totalBatchCount = 0;
-    let completedBatchCount = 0;
-    let activeWorkers = 0;
-    const MAX_CONCURRENT_REQUESTS = 6; // Fast parallel indexing limit
+    await loadPage(firstResult.title);
 
-    window.addEventListener('DOMContentLoaded', () => {
-      lucide.createIcons();
+    statusText.textContent =
+    "Loaded: " +
+    firstResult.title;
+}
+
+/* =========================
+   LOAD PAGE
+========================= */
+
+async function loadPage(title){
+
+    statusText.textContent =
+    "Loading " + title + "...";
+
+    const url =
+    API +
+    "?origin=*" +
+    "&action=parse" +
+    "&page=" +
+    encodeURIComponent(title) +
+    "&prop=text" +
+    "&format=json";
+
+    const response =
+    await fetch(url);
+
+    const data =
+    await response.json();
+
+    if(!data.parse){
+
+        statusText.textContent =
+        "Failed to load page.";
+
+        return;
+    }
+
+    const html =
+    data.parse.text["*"];
+
+    const parser =
+    new DOMParser();
+
+    const doc =
+    parser.parseFromString(
+        html,
+        "text/html"
+    );
+
+    cleanPage(doc);
+
+    const page =
+    document.createElement("div");
+
+    page.className = "page";
+
+    const titleElement =
+    document.createElement("h2");
+
+    titleElement.textContent =
+    title;
+
+    page.appendChild(titleElement);
+
+    const body =
+    document.createElement("div");
+
+    body.innerHTML =
+    doc.body.innerHTML;
+
+    page.appendChild(body);
+
+    content.innerHTML = "";
+
+    content.appendChild(page);
+
+    /* Attach internal link click handlers AFTER the page is inserted.
+       This makes page links work correctly.
+    */
+    content.querySelectorAll("a[data-page-title]").forEach(link => {
+
+        link.addEventListener("click", async function(e){
+
+            e.preventDefault();
+
+            const targetTitle =
+            this.getAttribute("data-page-title");
+
+            if(targetTitle){
+
+                await loadPage(targetTitle);
+
+            }
+
+        });
+
     });
 
-    function showNotification(message, duration = 3500) {
-      const toast = document.getElementById("toast");
-      const text = document.getElementById("toast-message");
-      text.innerText = message;
-      toast.classList.remove("translate-y-20", "opacity-0");
-      toast.classList.add("translate-y-0", "opacity-100");
-      setTimeout(() => {
-        toast.classList.add("translate-y-20", "opacity-0");
-        toast.classList.remove("translate-y-0", "opacity-100");
-      }, duration);
-    }
+    window.scrollTo(0,0);
 
-    function jsonp(url, params, cb, errCb) {
-      const cbName = "cb_" + Math.floor(Math.random() * 10000000);
-      let timeoutId;
+    statusText.textContent =
+    "Loaded: " + title;
+}
 
-      window[cbName] = (data) => {
-        if (timeoutId) clearTimeout(timeoutId);
-        delete window[cbName];
-        if (script.parentNode) document.body.removeChild(script);
-        cb(data);
-      };
+/* =========================
+   CLEAN PAGE
+========================= */
 
-      params.callback = cbName;
-      params.format = "json";
-      
-      const queryString = Object.entries(params)
-        .map(([k, v]) => encodeURIComponent(k) + "=" + encodeURIComponent(v))
-        .join("&");
-      
-      const script = document.createElement("script");
-      script.src = url + "?" + queryString;
-      
-      timeoutId = setTimeout(() => {
-        delete window[cbName];
-        if (script.parentNode) document.body.removeChild(script);
-        if (errCb) errCb("API request timed out. Please check your domain/connection.");
-      }, 10000);
+function cleanPage(doc){
 
-      document.body.appendChild(script);
-    }
+    const remove = [
 
-    function analyzeWiki() {
-      const input = document.getElementById("wiki-url").value.trim();
-      if (!input) {
-        showNotification("Please enter a valid URL or fandom domain");
-        return;
-      }
+        ".mw-editsection",
+        ".toc",
+        ".navbox",
+        ".reflist",
+        ".reference",
+        "script",
+        "style",
+        ".error",
+        ".nomobile",
+        ".portable-infobox",
+        ".wds-global-navigation-wrapper",
+        ".fandom-community-header__background",
+        ".page__right-rail",
+        ".global-footer",
+        ".license-description",
+        ".noprint",
+        ".ambox",
+        ".notice",
+        ".shortdescription",
+        ".mw-cite-backlink",
+        ".reference-text",
+        ".audio-button",
+        ".tabber",
+        ".tabs",
+        ".gallery",
+        ".mw-parser-output > aside"
+    ];
 
-      const statusText = document.getElementById("wiki-status-text");
-      const loader = document.getElementById("loader-explorer");
-      const explorer = document.getElementById("scraped-pages-list");
+    remove.forEach(selector => {
 
-      try {
-        let domain = input;
-        if (!domain.startsWith("http://") && !domain.startsWith("https://")) {
-          domain = "https://" + domain;
-        }
-        
-        const urlObj = new URL(domain);
-        let sub = urlObj.hostname.split(".")[0];
-        
-        if (urlObj.hostname.includes("fandom.com")) {
-          currentApiUrl = `https://${sub}.fandom.com/api.php`;
-        } else {
-          currentApiUrl = `https://${urlObj.hostname}/w/api.php`;
-        }
+        doc.querySelectorAll(selector)
+        .forEach(el => el.remove());
 
-        statusText.innerHTML = `<span class="text-indigo-400 font-semibold">Detected Endpoint:</span> ${currentApiUrl}`;
-        loader.classList.remove("hidden");
-        explorer.innerHTML = "";
+    });
 
-        wikiPagesFound = [];
-        document.getElementById("btn-add-all").classList.add("hidden");
-        fetchWikiListings("");
-      } catch (e) {
-        showNotification("Invalid URL pattern. Check syntax and try again.");
-      }
-    }
+    /* FORCE TABLES TO WORK */
 
-    function fetchWikiListings(apcontinue = "") {
-      const loader = document.getElementById("loader-explorer");
-      const params = { action: "query", list: "allpages", aplimit: 500 };
+    doc.querySelectorAll("table").forEach(table => {
 
-      if (apcontinue) params.apcontinue = apcontinue;
+        table.style.display = "table";
+        table.style.visibility = "visible";
+        table.hidden = false;
 
-      jsonp(currentApiUrl, params, res => {
-        if (res.query && res.query.allpages) {
-          const newBatch = res.query.allpages.map(p => ({ title: p.title }));
-          wikiPagesFound = wikiPagesFound.concat(newBatch);
-          
-          document.getElementById("avail-count").innerText = wikiPagesFound.length;
-          const nextContinue = res.continue?.apcontinue;
+        table.removeAttribute("style");
 
-          if (nextContinue && wikiPagesFound.length < 40000) {
-            loader.querySelector("p").innerText = `Scanning index... (${wikiPagesFound.length} articles found)`;
-            fetchWikiListings(nextContinue);
-          } else {
-            loader.classList.add("hidden");
-            renderExplorer(wikiPagesFound);
-            if (wikiPagesFound.length > 0) document.getElementById("btn-add-all").classList.remove("hidden");
-            if (nextContinue) showNotification("Indexed articles! (Capped scan limit reached for stability)");
-            else showNotification(`Crawl complete! Successfully indexed all ${wikiPagesFound.length} wiki articles.`);
-          }
-        } else {
-          loader.classList.add("hidden");
-          showNotification("No pages found or API blocked by CORS configuration.");
-        }
-      }, err => {
-        loader.classList.add("hidden");
-        showNotification(err);
-      });
-    }
+        table.querySelectorAll("*")
+        .forEach(el => {
 
-    function filterArticles() {
-      const query = document.getElementById("article-filter").value.toLowerCase();
-      const filtered = wikiPagesFound.filter(p => p.title.toLowerCase().includes(query));
-      renderExplorer(filtered);
-    }
+            el.removeAttribute("style");
 
-    function renderExplorer(items) {
-      const el = document.getElementById("scraped-pages-list");
-      if (items.length === 0) {
-        el.innerHTML = `<div class="text-center py-12 text-slate-500">No matching pages found</div>`;
-        return;
-      }
-
-      el.innerHTML = items.map(p => {
-        const safeTitle = p.title.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-        return `
-          <div class="flex items-center justify-between p-3 bg-slate-950/60 hover:bg-slate-950 rounded-xl border border-slate-800 hover:border-indigo-500/50 transition-all duration-150 group">
-            <span class="truncate pr-2 font-medium text-slate-200 group-hover:text-white text-xs sm:text-sm">${p.title}</span>
-            <button onclick="fetchPage('${safeTitle}')" class="bg-indigo-600 hover:bg-indigo-500 text-xs text-white font-bold px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 shrink-0">
-              <i data-lucide="plus" class="w-3.5 h-3.5"></i>
-              Add Page
-            </button>
-          </div>
-        `;
-      }).join("");
-      lucide.createIcons();
-    }
-
-    function sanitizeWikiText(text) {
-      if (!text) return "";
-      let cleaned = text
-        .replace(/BaseHP/g, "Base HP")
-        .replace(/BaseATK/g, "Base ATK")
-        .replace(/BaseDEF/g, "Base DEF")
-        .replace(/CritRate/g, "Crit Rate")
-        .replace(/CritDMG/g, "Crit DMG")
-        .replace(/EnergyRecharge/g, "Energy Recharge")
-        .replace(/ElemMas/g, "Elem Mas")
-        .replace(/NormalAttack/g, "Normal Attack")
-        .replace(/ChargedAttack/g, "Charged Attack")
-        .replace(/PlungingAttack/g, "Plunging Attack")
-        .replace(/StaggerLevel/g, "Stagger Level")
-        .replace(/InternalCooldown/g, "Internal Cooldown")
-        .replace(/HorizontalForce/g, "Horizontal Force")
-        .replace(/VerticalForce/g, "Vertical Force")
-        .replace(/NoICD/g, "No ICD")
-        .replace(/SkillDMG/g, "Skill DMG")
-        .replace(/BurstDMG/g, "Burst DMG")
-        .replace(/CD/g, "Cooldown");
-      
-      cleaned = cleaned.replace(/([a-z])([A-Z])/g, '$1 $2');
-      return cleaned;
-    }
-
-    function getCleanCellText(cell) {
-      const clone = cell.cloneNode(true);
-      clone.querySelectorAll('br').forEach(br => br.replaceWith(document.createTextNode(' | ')));
-      clone.querySelectorAll('div, p, span').forEach(el => {
-        if (el.nextSibling && el.textContent.trim().length > 0) {
-          el.after(document.createTextNode(' '));
-        }
-      });
-      let text = clone.textContent.replace(/\s+/g, ' ').trim();
-      text = text.split('|').map(s => s.trim()).filter(s => s.length > 0).join(', ');
-      return sanitizeWikiText(text);
-    }
-
-    function parseHtmlToBlocks(html) {
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(html, "text/html");
-      const root = doc.querySelector(".mw-parser-output") || doc.body;
-      
-      if (!root) return [];
-      
-      // Clean non-printable / layout clutter elements first
-      root.querySelectorAll(".navbox, .toc, .mw-empty-elt, .reference, .editsection, script, style, .mw-jump-link, .thumbcaption, figcaption").forEach(e => e.remove());
-      
-      // Strip ALL tab selection elements and media previews so they never get captured
-      root.querySelectorAll(".tabber__tabs, .tabber__nav, .nav-tabs, .tabs-slider, .tabber__header, .preview-preferences").forEach(node => node.remove());
-
-      // STRICT TAB DUPLICATION PREVENTION: Purge hidden tab panels instantly
-      root.querySelectorAll('.wds-tabber-panel--hidden, .tabber__panel--hidden, [style*="display: none"], [style*="display:none"], [hidden]').forEach(node => node.remove());
-
-      const blocks = [];
-      const processedTextCache = new Set(); // Prevent duplicate sentences/items
-
-      function walk(node) {
-        if (!node) return;
-        if (node.nodeType !== Node.ELEMENT_NODE) return;
-
-        // FIXED: Replaced node.className with node.getAttribute('class') to prevent SVGAnimatedString Object exceptions.
-        const classStr = node.getAttribute('class') || "";
-        const idStr = node.id || "";
-        
-        const isLayoutContainer = classStr.includes("tabber__tabs") || 
-                                  classStr.includes("tabber__nav") || 
-                                  classStr.includes("nav-tabs") ||
-                                  classStr.includes("preview-preferences") ||
-                                  idStr.includes("preview-preferences") ||
-                                  node.style.display === "none" ||
-                                  node.getAttribute("hidden") !== null;
-
-        if (isLayoutContainer) return;
-
-        const isHiddenPanel = classStr.includes("tabber__panel--hidden") || 
-                             (classStr.includes("tabber__panel") && !classStr.includes("tabber__panel--active"));
-        if (isHiddenPanel) return;
-
-        const tagName = node.tagName.toLowerCase();
-        
-        // 1. Infobox / Summary Factsheets
-        const isInfobox = node.classList.contains('infobox') || 
-                          node.classList.contains('portable-infobox') || 
-                          node.classList.contains('aside') || 
-                          node.getAttribute('summary')?.includes('infobox') ||
-                          node.classList.contains('infobox-v2');
-
-        if (isInfobox) {
-          const facts = [];
-          node.querySelectorAll('tr').forEach(tr => {
-            const th = tr.querySelector('th');
-            const td = tr.querySelector('td');
-            if (th && td) {
-              const label = sanitizeWikiText(th.textContent.trim());
-              const val = getCleanCellText(td);
-              // USER RULE: Discard if value is longer than 300 characters
-              if (label.length > 0 && val.length > 0 && label.length < 100 && val.length <= 300) {
-                facts.push({ label: label, value: val });
-              }
-            }
-          });
-          node.querySelectorAll('.pi-item').forEach(item => {
-            const labelEl = item.querySelector('.pi-data-label');
-            const valueEl = item.querySelector('.pi-data-value');
-            if (labelEl && valueEl) {
-              const label = sanitizeWikiText(labelEl.textContent.trim());
-              const val = getCleanCellText(valueEl);
-              if (label.length > 0 && val.length > 0 && label.length < 100 && val.length <= 300) {
-                facts.push({ label: label, value: val });
-              }
-            }
-          });
-          if (facts.length > 0) {
-            blocks.push({
-              type: "infobox",
-              facts: facts,
-              title: node.querySelector('.fn, .title, caption, .pi-title')?.textContent.trim() || "Character Fact Sheet"
-            });
-          }
-          return;
-        }
-
-        // 2. Data Tables (Scaling grids, ICD tables, Ascension data)
-        const isDataTable = node.classList.contains('wikitable') || 
-                            node.classList.contains('article-table') || 
-                            node.classList.contains('fandom-table') || 
-                            node.classList.contains('stat-table') || 
-                            node.classList.contains('table') ||
-                            node.hasAttribute('border');
-
-        if (tagName === 'table' && isDataTable) {
-          const headers = [];
-          const rawRows = [];
-          let maxCols = 0;
-
-          // Process direct tr elements to prevent duplicate nested parsing
-          Array.from(node.rows).forEach((tr) => {
-            const cells = Array.from(tr.cells);
-            if (cells.length === 0) return;
-
-            const isBanner = cells.length === 1 && (cells[0].getAttribute('colspan') > 3 || cells[0].textContent.includes('past 10 require'));
-            if (isBanner) return;
-
-            const rowData = [];
-            cells.forEach(cell => {
-              const colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
-              let text = getCleanCellText(cell);
-              
-              // STRICT USER RULE: Remove any cell text in a table longer than 300 chars
-              if (text.length > 300) {
-                 text = ""; 
-              }
-
-              for (let i = 0; i < colspan; i++) {
-                rowData.push(text);
-              }
-            });
-
-            if (rowData.some(t => t.length > 0)) {
-              const isActualHeader = tr.closest('thead') !== null || rawRows.length === 0;
-              rawRows.push({
-                isHeader: isActualHeader,
-                data: rowData
-              });
-              if (rowData.length > maxCols) maxCols = rowData.length;
-            }
-          });
-
-          if (maxCols > 0) {
-            let bestHeader = null;
-            const finalDataRows = [];
-
-            rawRows.forEach(row => {
-              if (row.isHeader && row.data.length === maxCols) {
-                bestHeader = row.data;
-              } else {
-                while (row.data.length < maxCols) row.data.push("");
-                finalDataRows.push(row.data);
-              }
-            });
-
-            if (!bestHeader) {
-              const firstHeaderRow = rawRows.find(r => r.isHeader);
-              if (firstHeaderRow) {
-                bestHeader = firstHeaderRow.data;
-                while (bestHeader.length < maxCols) bestHeader.push(`Level ${bestHeader.length + 1}`);
-              } else {
-                bestHeader = [];
-                for (let c = 0; c < maxCols; c++) bestHeader.push(c === 0 ? "Attributes" : `Lvl ${c}`);
-              }
-            }
-
-            bestHeader = bestHeader.slice(0, maxCols);
-            const cleanedDataRows = finalDataRows.map(r => r.slice(0, maxCols));
-
-            if (cleanedDataRows.length > 0) {
-              const chartData = tryGenerateChartData(bestHeader, cleanedDataRows);
-              blocks.push({
-                type: "table",
-                headers: bestHeader,
-                rows: cleanedDataRows,
-                chart: chartData
-              });
-            }
-          }
-          return;
-        }
-
-        if (tagName === 'h2' || tagName === 'h3') {
-          const t = node.textContent.replace(/\[edit\]/gi, '').trim();
-          if (t.length > 0 && !processedTextCache.has(t)) {
-            processedTextCache.add(t);
-            blocks.push({ type: "heading", text: t });
-          }
-          return;
-        }
-
-        if (tagName === 'ul' || tagName === 'ol') {
-          const items = [];
-          node.querySelectorAll('li').forEach(li => {
-            const text = li.textContent.trim();
-            if (text.length > 0 && !processedTextCache.has(text)) {
-              processedTextCache.add(text);
-              items.push(text);
-            }
-          });
-          if (items.length > 0) blocks.push({ type: "list", items: items, ordered: (tagName === 'ol') });
-          return;
-        }
-
-        // Clean direct paragraph parsing preventing duplication
-        if (tagName === 'p') {
-          const t = node.textContent.trim();
-          const isGarbageText = t.startsWith("Media:") || t.includes("Hover over previews");
-          
-          if (t.length > 5 && !isGarbageText && !processedTextCache.has(t)) {
-            processedTextCache.add(t);
-            blocks.push({ type: "p", text: t });
-          }
-          return;
-        }
-
-        Array.from(node.children).forEach(child => walk(child));
-      }
-
-      walk(root);
-      return blocks;
-    }
-
-    function tryGenerateChartData(headers, rows) {
-      if (rows.length < 2) return null;
-      let labelCol = 0;
-      let numericCol = -1;
-      const colCount = headers.length;
-
-      for (let c = 0; c < colCount; c++) {
-        let matches = 0;
-        rows.forEach(r => {
-          const raw = r[c];
-          if (raw && !isNaN(parseFloat(raw.replace(/[$,%\s]/g, '')))) matches++;
-        });
-        if (matches > rows.length * 0.6) {
-          numericCol = c;
-          break;
-        }
-      }
-
-      if (numericCol === 0 && colCount > 1) labelCol = 1;
-      if (numericCol !== -1 && labelCol !== -1) {
-        const points = [];
-        rows.forEach(r => {
-          const label = r[labelCol] || 'Metric';
-          const val = parseFloat((r[numericCol] || '0').replace(/[$,%\s]/g, ''));
-          if (!isNaN(val)) points.push({ label: label.substring(0, 18), value: val });
         });
 
-        if (points.length >= 2) {
-          return {
-            title: `Trend Chart: ${headers[numericCol]}`,
-            points: points,
-            yLabel: headers[numericCol]
-          };
-        }
-      }
-      return null;
-    }
+    });
 
-    function fetchPage(title) {
-      showNotification(`Fetching "${title}" content...`, 2000);
-      
-      jsonp(currentApiUrl, {
-        action: "parse",
-        page: title,
-        prop: "text",
-        redirects: 1
-      }, res => {
-        if (!res.parse || !res.parse.text || !res.parse.text["*"]) {
-          showNotification("Unable to load document article blocks.");
-          return;
-        }
+    /* REMOVE IMAGES BUT KEEP THEIR NAMES */
 
-        const blocks = parseHtmlToBlocks(res.parse.text["*"]);
+    doc.querySelectorAll("a").forEach(link => {
 
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(res.parse.text["*"], "text/html");
-        const root = doc.querySelector(".mw-parser-output") || doc.body;
-        const images = [];
-        
-        root.querySelectorAll("img").forEach(i => {
-          let src = i.getAttribute("src") || i.getAttribute("data-src");
-          if (src && !src.startsWith("data:") && images.length < 3) {
-            if (src.startsWith("//")) src = "https:" + src;
-            images.push(src);
-          }
-        });
+        const title =
+        link.getAttribute("title");
 
-        if (blocks.length === 0) {
-          blocks.push({ type: "p", text: "This article contains minimal text content. See full article online." });
+        const text =
+        link.textContent.trim();
+
+        const hasImage =
+        link.querySelector("img");
+
+        /* ascension material fix */
+
+        if(
+            hasImage &&
+            (
+                !text ||
+                text.length < 2
+            ) &&
+            title
+        ){
+
+            link.innerHTML = title;
+
         }
 
-        addedPagesQueue.push({ title, blocks, images });
-        renderQueue();
-        renderPreview();
-        updateBuilderState();
-        showNotification(`Added "${title}" as Chapter ${addedPagesQueue.length}!`);
-      }, err => {
-        showNotification("Failed fetching detailed post from server.");
-      });
-    }
+    });
 
-    function addAllArticles() {
-      if (wikiPagesFound.length === 0) {
-        showNotification("No articles found to import.");
-        return;
-      }
-      if (isBatchImporting) return;
+    /* REMOVE ALL IMAGES */
 
-      if (wikiPagesFound.length > 150) {
-        document.getElementById("safety-count").innerText = wikiPagesFound.length;
-        document.getElementById("safety-modal").classList.remove("hidden");
-        lucide.createIcons();
-      } else {
-        startSafeBatchImport(-1); 
-      }
-    }
+    doc.querySelectorAll("img")
+    .forEach(img => {
 
-    function closeSafetyModal() {
-      document.getElementById("safety-modal").classList.add("hidden");
-    }
+        img.remove();
 
-    function startSafeBatchImport(limitCount) {
-      closeSafetyModal();
-      if (limitCount === -1) batchImportQueue = [...wikiPagesFound];
-      else batchImportQueue = wikiPagesFound.slice(0, limitCount);
+    });
 
-      totalBatchCount = batchImportQueue.length;
-      completedBatchCount = 0;
-      isBatchImporting = true;
-      activeWorkers = 0;
+    /* INTERNAL LINKS
+       Important:
+       Do NOT attach onclick here because this document is later copied with innerHTML.
+       Event handlers assigned in this temporary parsed document will be lost.
+       Instead, store the target page title in data-page-title and attach clicks after insertion.
+    */
 
-      document.getElementById("import-overlay").classList.remove("hidden");
-      
-      const parallelWorkersCount = Math.min(MAX_CONCURRENT_REQUESTS, batchImportQueue.length);
-      for (let i = 0; i < parallelWorkersCount; i++) {
-        activeWorkers++;
-        processNextBatchItem();
-      }
-    }
+    doc.querySelectorAll("a").forEach(link => {
 
-    function processNextBatchItem() {
-      if (!isBatchImporting) {
-        activeWorkers--;
-        return;
-      }
-      if (batchImportQueue.length === 0) {
-        activeWorkers--;
-        if (activeWorkers === 0) finishBatchImport();
-        return;
-      }
+        const title =
+        link.getAttribute("title");
 
-      const activePage = batchImportQueue.shift();
+        const href =
+        link.getAttribute("href");
 
-      jsonp(currentApiUrl, {
-        action: "parse",
-        page: activePage.title,
-        prop: "text",
-        redirects: 1
-      }, res => {
-        completedBatchCount++;
-        const progressPercentage = Math.round((completedBatchCount / totalBatchCount) * 100);
-        document.getElementById("import-status-text").innerText = `Importing chapter ${completedBatchCount} of ${totalBatchCount}`;
-        document.getElementById("import-percentage").innerText = `${progressPercentage}%`;
-        document.getElementById("import-progress-bar").style.width = `${progressPercentage}%`;
-
-        if (res && res.parse && res.parse.text && res.parse.text["*"]) {
-          const blocks = parseHtmlToBlocks(res.parse.text["*"]);
-          const parser = new DOMParser();
-          const doc = parser.parseFromString(res.parse.text["*"], "text/html");
-          const root = doc.querySelector(".mw-parser-output") || doc.body;
-          const images = [];
-          
-          root.querySelectorAll("img").forEach(i => {
-            let src = i.getAttribute("src") || i.getAttribute("data-src");
-            if (src && !src.startsWith("data:") && images.length < 3) {
-              if (src.startsWith("//")) src = "https:" + src;
-              images.push(src);
-            }
-          });
-
-          if (blocks.length === 0) blocks.push({ type: "p", text: "This article contains minimal text content. See full article online." });
-          if (!addedPagesQueue.some(page => page.title === activePage.title)) {
-            addedPagesQueue.push({ title: activePage.title, blocks, images });
-          }
+        if(
+            href &&
+            href.startsWith("http")
+        ){
+            link.target = "_blank";
+            return;
         }
 
-        renderQueue();
-        renderPreview();
-        updateBuilderState();
+        let pageTitle = title;
 
-        setTimeout(processNextBatchItem, 10);
-      }, () => {
-        completedBatchCount++;
-        setTimeout(processNextBatchItem, 10);
-      });
-    }
-
-    function cancelBatchImport() {
-      isBatchImporting = false;
-      document.getElementById("import-overlay").classList.add("hidden");
-      showNotification("Batch import process cancelled.");
-    }
-
-    function renderQueue() {
-      const el = document.getElementById("compilation-list");
-      const clearBtn = document.getElementById("btn-clear");
-      document.getElementById("added-count").innerText = addedPagesQueue.length;
-
-      if (addedPagesQueue.length === 0) {
-        clearBtn.classList.add("hidden");
-        el.innerHTML = `
-          <div class="text-center py-12 text-slate-500 h-full flex flex-col items-center justify-center">
-            <i data-lucide="file-plus" class="w-12 h-12 mb-3 opacity-30 text-emerald-400"></i>
-            <span>Add pages from the left menu to compile your custom PDF book!</span>
-          </div>
-        `;
-        lucide.createIcons();
-        return;
-      }
-
-      clearBtn.classList.remove("hidden");
-      el.innerHTML = addedPagesQueue.map((p, i) => `
-        <div class="flex items-center justify-between p-3 bg-slate-950/70 border border-slate-800 hover:border-emerald-500/40 rounded-xl transition-all duration-200">
-          <div class="flex items-center gap-2.5 truncate max-w-[65%]">
-            <span class="bg-indigo-600/20 text-indigo-400 font-bold px-1.5 py-0.5 rounded text-[10px]">CH ${i+1}</span>
-            <span class="font-medium text-slate-200 truncate text-xs sm:text-sm">${p.title}</span>
-          </div>
-          <div class="flex items-center gap-1.5 shrink-0">
-            <button onclick="moveQueue(${i}, -1)" class="p-1 hover:bg-slate-800 text-slate-400 hover:text-white rounded transition" title="Move Up"><i data-lucide="chevron-up" class="w-3.5 h-3.5"></i></button>
-            <button onclick="moveQueue(${i}, 1)" class="p-1 hover:bg-slate-800 text-slate-400 hover:text-white rounded transition" title="Move Down"><i data-lucide="chevron-down" class="w-3.5 h-3.5"></i></button>
-            <button onclick="deleteFromQueue(${i})" class="p-1 bg-rose-500/10 hover:bg-rose-500 text-rose-400 hover:text-white rounded-lg transition ml-1" title="Delete"><i data-lucide="trash" class="w-3.5 h-3.5"></i></button>
-          </div>
-        </div>
-      `).join("");
-      lucide.createIcons();
-    }
-
-    function deleteFromQueue(index) {
-      addedPagesQueue.splice(index, 1);
-      renderQueue();
-      renderPreview();
-      updateBuilderState();
-    }
-
-    function clearQueue() {
-      addedPagesQueue = [];
-      renderQueue();
-      renderPreview();
-      updateBuilderState();
-      showNotification("Cleared chapter layout template queue");
-    }
-
-    function moveQueue(index, direction) {
-      const targetIndex = index + direction;
-      if (targetIndex < 0 || targetIndex >= addedPagesQueue.length) return;
-      [addedPagesQueue[index], addedPagesQueue[targetIndex]] = [addedPagesQueue[targetIndex], addedPagesQueue[index]];
-      renderQueue();
-      renderPreview();
-    }
-
-    function updateBuilderState() {
-      const btn = document.getElementById("btn-build");
-      btn.disabled = addedPagesQueue.length === 0;
-    }
-
-    function finishBatchImport() {
-      isBatchImporting = false;
-      document.getElementById("import-overlay").classList.add("hidden");
-      showNotification("Success! All parsed articles added to compilation index.");
-    }
-
-    function renderPreview() {
-      const el = document.getElementById("wiki-pages-container");
-      if (addedPagesQueue.length === 0) {
-        el.innerHTML = `
-          <div class="text-center py-16 text-slate-400 italic">
-            <i data-lucide="book" class="w-16 h-16 mx-auto mb-4 opacity-10"></i>
-            No chapters loaded. Select pages from the lists above to generate document preview layout blocks.
-          </div>
-        `;
-        lucide.createIcons();
-        return;
-      }
-      el.innerHTML = addedPagesQueue.map((p, i) => renderSingle(p, i)).join("<hr style='border-top: 2px dashed #cbd5e1; margin: 40px 0;' />");
-    }
-
-    function renderSingle(p, index) {
-      let blocksHtml = "";
-
-      p.blocks.forEach(b => {
-        if (b.type === 'heading') {
-          blocksHtml += `<h2 style="font-size: 16px; font-weight: 800; color: #1e293b; margin: 24px 0 10px 0; border-bottom: 2px solid #e2e8f0; padding-bottom: 4px; text-transform: capitalize;">${b.text}</h2>`;
-        } 
-        else if (b.type === 'p') {
-          blocksHtml += `<p style="font-size: 13px; color: #334155; margin-bottom: 12px; text-align: justify; text-indent: 10px; line-height: 1.6;">${b.text}</p>`;
-        } 
-        else if (b.type === 'list') {
-          const listTag = b.ordered ? 'ol' : 'ul';
-          const listStyle = b.ordered ? 'decimal' : 'square';
-          blocksHtml += `<${listTag} style="margin: 0 0 16px 20px; padding: 0; list-style-type: ${listStyle}; font-size: 12.5px; color: #475569;">
-            ${b.items.map(item => `<li style="margin-bottom: 5px;">${item}</li>`).join("")}
-          </${listTag}>`;
-        } 
-        else if (b.type === 'infobox') {
-          blocksHtml += `
-            <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 14px; margin: 15px 0; width: 100%; box-sizing: border-box; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
-              <h4 style="font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #4f46e5; margin: 0 0 10px 0; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px;">📊 ${b.title}</h4>
-              <table style="width: 100%; border-collapse: collapse; font-size: 11px; table-layout: fixed; word-wrap: break-word;">
-                ${b.facts.map(f => `
-                  <tr style="border-bottom: 1px solid #e2e8f0;">
-                    <td style="font-weight: 700; color: #475569; padding: 5px 8px 5px 0; width: 40%; vertical-align: top;">${f.label}</td>
-                    <td style="color: #0f172a; padding: 5px 0 5px 8px; vertical-align: top;">${f.value}</td>
-                  </tr>
-                `).join("")}
-              </table>
-            </div>
-          `;
-        } 
-        else if (b.type === 'table') {
-          let origHeaders = [...b.headers];
-          let origRows = [...b.rows];
-          let isTransposed = false;
-
-          // TRANSPOSE TRIGGER: If the table has more than 5 columns (levels), transpose it!
-          if (origHeaders.length > 5) {
-            isTransposed = true;
-            
-            let transHeaders = ["Attributes"];
-            origRows.forEach(row => {
-              transHeaders.push(row[0] || "Value");
-            });
-
-            let transRows = [];
-            for (let cIdx = 1; cIdx < origHeaders.length; cIdx++) {
-              let newRow = [origHeaders[cIdx]];
-              origRows.forEach(row => {
-                newRow.push(row[cIdx] || "");
-              });
-              transRows.push(newRow);
-            }
-
-            origHeaders = transHeaders;
-            origRows = transRows;
-          }
-
-          const colCount = origHeaders.length;
-          
-          let tableFontSize = '12px';
-          let paddingSize = '6px 8px';
-          if (colCount > 10) {
-            tableFontSize = '7.5px';
-            paddingSize = '2px 3px';
-          } else if (colCount > 7) {
-            tableFontSize = '9px';
-            paddingSize = '4px 5px';
-          } else if (colCount > 5) {
-            tableFontSize = '10px';
-            paddingSize = '5px 6px';
-          }
-
-          const isWideTable = colCount > 6;
-          const tableFontFamily = isWideTable ? "'Arial Narrow', 'Segoe UI Condensed', Arial, sans-serif" : "inherit";
-
-          let tableMarkup = `
-            <div style="margin: 20px 0; width: 100%; border: 1px solid #e2e8f0; border-radius: 8px; background: #ffffff; box-sizing: border-box; overflow: hidden;">
-              <table style="width: 100%; max-width: 100%; border-collapse: collapse; font-size: ${tableFontSize}; text-align: left; table-layout: auto; font-family: ${tableFontFamily};">
-                <thead>
-                  <tr style="background-color: #f1f5f9; border-bottom: 2px solid #cbd5e1;">
-                    ${origHeaders.map((h, hIdx) => {
-                      const isFirstCol = (hIdx === 0);
-                      const widthConstraint = isFirstCol ? `width: 120px; min-width: 80px;` : ``;
-                      return `
-                        <th style="padding: ${paddingSize}; ${widthConstraint} border-right: 1px solid #e2e8f0; font-weight: 800; color: #1e293b; word-break: keep-all; overflow-wrap: break-word; white-space: normal;">
-                          ${h}
-                        </th>`;
-                    }).join("")}
-                  </tr>
-                </thead>
-                <tbody>
-                  ${origRows.map((row, rIdx) => `
-                    <tr style="border-bottom: 1px solid #f1f5f9; background-color: ${rIdx % 2 === 0 ? '#ffffff' : '#f8fafc'};">
-                      ${row.map((cell, cIdx) => {
-                        const isFirstCol = (cIdx === 0);
-                        const styleConstraint = isFirstCol ? `font-weight: bold; color: #0f172a; text-align: left;` : `color: #334155; text-align: center;`;
-                        return `
-                          <td style="padding: ${paddingSize}; border-right: 1px solid #e2e8f0; line-height: 1.4; vertical-align: middle; word-break: keep-all; overflow-wrap: break-word; white-space: normal; ${styleConstraint}">
-                            ${cell}
-                          </td>`;
-                      }).join("")}
-                    </tr>
-                  `).join("")}
-                </tbody>
-              </table>
-            </div>
-          `;
-
-          if (b.chart && b.chart.points.length > 0) {
-            const chartH = 150;
-            const displayPoints = b.chart.points.slice(0, 8);
-            const chartMax = Math.max(...displayPoints.map(p => p.value), 1);
-            
-            tableMarkup += `
-              <div style="background: #fdfdfd; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; margin: 15px 0; text-align: center; width: 100%; box-sizing: border-box; overflow: hidden;">
-                <h5 style="margin: 0 0 12px 0; font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; font-family: sans-serif;">📈 ${b.chart.title}</h5>
-                <div style="display: flex; justify-content: space-around; align-items: flex-end; height: ${chartH}px; padding: 0 10px 40px 10px; border-bottom: 1px solid #e2e8f0; width: 100%; box-sizing: border-box;">
-                  ${displayPoints.map((pt) => {
-                    const barH = Math.max((pt.value / chartMax) * (chartH - 55), 10);
-                    return `
-                      <div style="display: flex; flex-direction: column; align-items: center; flex: 1; max-width: 50px; min-width: 0; margin: 0 2px; height: 100%; justify-content: flex-end; position: relative;">
-                        <span style="font-size: 8.5px; font-weight: bold; color: #4f46e5; margin-bottom: 4px; display: block; text-align: center; white-space: nowrap;">${pt.value}</span>
-                        <div style="height: ${barH}px; width: 100%; background: linear-gradient(to top, #4f46e5, #818cf8); border-radius: 4px 4px 0 0; box-shadow: 0 2px 4px rgba(79, 70, 229, 0.2);"></div>
-                        <div style="position: absolute; bottom: -30px; left: 50%; transform: translateX(-50%) rotate(-15deg); font-size: 8px; font-weight: bold; color: #64748b; white-space: nowrap; text-align: center; max-width: 60px; overflow: hidden; text-overflow: ellipsis;" title="${pt.label}">${pt.label}</div>
-                      </div>
-                    `;
-                  }).join("")}
-                </div>
-              </div>
-            `;
-          }
-
-          blocksHtml += tableMarkup;
-        }
-      });
-
-      return `
-        <div style="font-family:'Helvetica Neue', Arial, sans-serif; padding: 40px; background: #ffffff; color: #111111; max-width: 100%; box-sizing: border-box; line-height: 1.6; font-size: 13.5px; overflow: hidden;">
-          <div style="border-bottom: 2px solid #222; padding-bottom: 8px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: baseline;">
-            <span style="font-size: 10px; text-transform: uppercase; font-weight: bold; color: #4f46e5; letter-spacing: 1px;">Chapter ${index + 1}</span>
-            <span style="font-size: 9px; color: #666; font-style: italic;">WikiPDF Dynamic Book Compiler</span>
-          </div>
-          
-          <h1 style="font-size: 24px; font-weight: 800; margin: 0 0 20px 0; color: #0f172a; border-bottom: 1px solid #cbd5e1; padding-bottom: 12px; letter-spacing: -0.5px; word-wrap: break-word;">${p.title}</h1>
-          
-          ${p.images && p.images.length > 0 ? `
-            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 24px;">
-              ${p.images.map(img => `
-                <div style="background: #f8fafc; border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: center; height: 150px; padding: 6px;">
-                  <img src="${img}" style="max-width: 100%; max-height: 100%; object-fit: contain;" onerror="this.parentElement.style.display='none'"/>
-                </div>
-              `).join("")}
-            </div>
-          ` : ''}
-
-          <div style="text-align: justify; color: #334155;">
-            ${blocksHtml}
-          </div>
-          
-          <div style="margin-top: 40px; border-top: 1px solid #cbd5e1; padding-top: 10px; text-align: center; font-size: 9px; color: #94a3b8;">
-            Page Generated with high-fidelity parsing vector layout grids.
-          </div>
-        </div>
-      `;
-    }
-
-    // ACCURATE MULTI-PAGE PDF EXPORT ENGINE 
-    async function buildPdfBook() {
-      if (addedPagesQueue.length === 0) return;
-
-      const btn = document.getElementById("btn-build");
-      const originalText = btn.innerHTML;
-      btn.disabled = true;
-      btn.innerHTML = `<span class="flex items-center gap-2"><div class="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div> Generating PDF...</span>`;
-
-      try {
-        const { jsPDF } = window.jspdf;
-        const pdf = new jsPDF({
-          orientation: "portrait",
-          unit: "mm",
-          format: "a4"
-        });
-
-        const pageW = 210;
-        const pageH = 297;
-
-        const temp = document.createElement("div");
-        temp.style.position = "absolute";
-        temp.style.left = "-9999px";
-        temp.style.top = "0";
-        temp.style.width = "794px"; 
-        document.body.appendChild(temp);
-
-        for (let idx = 0; idx < addedPagesQueue.length; idx++) {
-          const chapter = addedPagesQueue[idx];
-          temp.innerHTML = renderSingle(chapter, idx);
-          
-          await new Promise(resolve => setTimeout(resolve, 350));
-
-          const canvas = await html2canvas(temp, {
-            scale: 2, 
-            useCORS: true,
-            allowTaint: false,
-            backgroundColor: "#ffffff",
-            logging: false
-          });
-
-          const imgData = canvas.toDataURL("image/jpeg", 0.95);
-          const imgH = (canvas.height * pageW) / canvas.width;
-          let currentPos = 0;
-
-          pdf.addImage(imgData, "JPEG", 0, currentPos, pageW, imgH, undefined, 'FAST');
-          
-          let leftH = imgH - pageH;
-          while (leftH > 0) {
-            currentPos = leftH - imgH;
-            pdf.addPage();
-            pdf.addImage(imgData, "JPEG", 0, currentPos, pageW, imgH, undefined, 'FAST');
-            leftH -= pageH;
-          }
-
-          if (idx < addedPagesQueue.length - 1) {
-            pdf.addPage();
-          }
+        if(
+            !pageTitle &&
+            href &&
+            href.startsWith("/wiki/")
+        ){
+            pageTitle =
+            decodeURIComponent(
+                href.replace("/wiki/", "")
+            ).replace(/_/g, " ");
         }
 
-        document.body.removeChild(temp);
-        pdf.save("WikiBook.pdf");
-        showNotification("Success! Your book has been generated!");
-      } catch (err) {
-        console.error(err);
-        showNotification("PDF Export Encountered an Error. Make sure assets loaded successfully.");
-      } finally {
-        btn.innerHTML = originalText;
-        updateBuilderState();
-      }
+        if(pageTitle){
+
+            link.href = "#";
+            link.setAttribute("data-page-title", pageTitle);
+
+        }
+
+    });
+
+    /* REMOVE EMPTY ELEMENTS */
+
+    doc.querySelectorAll("p").forEach(p => {
+
+        if(
+            !p.textContent.trim()
+        ){
+            p.remove();
+        }
+
+    });
+
+}
+
+/* =========================
+   LOAD ENTIRE WIKI
+========================= */
+
+async function loadAllPages(){
+
+    content.innerHTML = "";
+
+    statusText.textContent =
+    "Loading page list...";
+
+    let apcontinue = "";
+
+    let pages = [];
+
+    while(true){
+
+        let url =
+        API +
+        "?origin=*" +
+        "&action=query" +
+        "&list=allpages" +
+        "&aplimit=max" +
+        "&format=json";
+
+        if(apcontinue){
+
+            url +=
+            "&apcontinue=" +
+            encodeURIComponent(apcontinue);
+
+        }
+
+        const response =
+        await fetch(url);
+
+        const data =
+        await response.json();
+
+        pages =
+        pages.concat(
+            data.query.allpages
+        );
+
+        if(data.continue){
+
+            apcontinue =
+            data.continue.apcontinue;
+
+        }else{
+
+            break;
+
+        }
+
     }
-  </script>
+
+    statusText.textContent =
+    "Found " +
+    pages.length +
+    " pages.";
+
+    content.innerHTML = "";
+
+    for(
+        let i = 0;
+        i < pages.length;
+        i++
+    ){
+
+        const title =
+        pages[i].title;
+
+        const div =
+        document.createElement("div");
+
+        const link =
+        document.createElement("a");
+
+        link.textContent =
+        title;
+
+        link.href = "#";
+
+        link.onclick =
+        async function(e){
+
+            e.preventDefault();
+
+            await loadPage(title);
+
+        };
+
+        div.appendChild(link);
+
+        content.appendChild(div);
+
+    }
+
+    statusText.textContent =
+    "Entire wiki index loaded.";
+
+}
+
+/* =========================
+   ENTER KEY SEARCH
+========================= */
+
+document
+.getElementById("search")
+.addEventListener(
+    "keydown",
+    function(e){
+
+        if(e.key === "Enter"){
+
+            searchPage();
+
+        }
+
+    }
+);
+</script>
 
 </body>
 </html>

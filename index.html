@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>test</title>
+<title>Genshin Impact Wiki Reader - Kindle Compatible</title>
 
 <style>
 body{
@@ -16,10 +16,20 @@ body{
     font-size:18px;
 }
 
+input{
+    width:260px;
+    padding:6px;
+    font-size:18px;
+}
+
 button{
     padding:8px 12px;
     margin:4px;
     font-size:18px;
+}
+
+img{
+    display:none;
 }
 
 table{
@@ -37,75 +47,205 @@ td, th{
     vertical-align:top;
 }
 
-img{
-    display:none;
-}
-
 a{
     color:blue;
+    cursor:pointer;
     text-decoration:underline;
 }
 
 .page{
     margin-top:30px;
-    padding-top:20px;
-    border-top:1px dashed #ccc;
-    page-break-after:always;
 }
 
 .loading{
     color:gray;
-    font-style:italic;
 }
 
-.error{
-    color:red;
-    font-style:italic;
-}
-
-.speed-info {
-    color: green;
-    font-family: monospace;
-    font-size: 14px;
-    margin-top: 5px;
+.hidden{
+    display:none;
 }
 </style>
-
-<!-- JSZip -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-
-<!-- FileSaver -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
-
 </head>
 <body>
 
-<h1>test</h1>
+<h1>Genshin Impact Wiki Reader</h1>
 
-<button id="downloadButton" type="button">
-run
+<input id="search" placeholder="Search page...">
+
+<button id="searchButton" type="button">
+Search
+</button>
+
+<button id="indexButton" type="button">
+Load Wiki Index
 </button>
 
 <p id="status"></p>
-<div id="speedometer" class="speed-info"></div>
 
 <div id="content"></div>
 
-<script>
+<script type="text/javascript">
 /*
-EPUB GENERATOR (FAST REWRITTEN VERSION)
-----------------------------------------
-Downloads wiki pages concurrently
-Formats them Kindle-style
-Builds a real EPUB file
+Kindle-compatible version:
+- No async / await
+- No fetch()
+- No const / let
+- No arrow functions
+- No inline onclick
+- Uses XMLHttpRequest
 */
 
 var API = "https://genshin-impact.fandom.com/api.php";
 
-var statusText = document.getElementById("status");
-var speedometer = document.getElementById("speedometer");
 var content = document.getElementById("content");
-var downloadButton = document.getElementById("downloadButton");
+var statusText = document.getElementById("status");
+var searchInput = document.getElementById("search");
+var searchButton = document.getElementById("searchButton");
+var indexButton = document.getElementById("indexButton");
+
+/* =========================
+   BASIC AJAX
+========================= */
+
+function getJSON(url, callback){
+
+    var xhr = new XMLHttpRequest();
+
+    xhr.onreadystatechange = function(){
+
+        if(xhr.readyState === 4){
+
+            if(xhr.status >= 200 && xhr.status < 300){
+
+                try{
+                    var data = JSON.parse(xhr.responseText);
+                    callback(null, data);
+                }catch(e){
+                    callback("Could not read response.", null);
+                }
+
+            }else{
+                callback("Request failed. Status: " + xhr.status, null);
+            }
+
+        }
+
+    };
+
+    xhr.open("GET", url, true);
+    xhr.send(null);
+
+}
+
+/* =========================
+   SEARCH
+========================= */
+
+function searchPage(){
+
+    var query = searchInput.value.replace(/^\s+|\s+$/g, "");
+
+    if(!query){
+        statusText.innerHTML = "Please enter a page name.";
+        return;
+    }
+
+    statusText.innerHTML = "Searching...";
+
+    var url =
+        API +
+        "?origin=*" +
+        "&action=query" +
+        "&list=search" +
+        "&srsearch=" +
+        encodeURIComponent(query) +
+        "&format=json";
+
+    getJSON(url, function(error, data){
+
+        if(error){
+            statusText.innerHTML = error;
+            return;
+        }
+
+        if(
+            !data.query ||
+            !data.query.search ||
+            data.query.search.length === 0
+        ){
+            statusText.innerHTML = "No results.";
+            return;
+        }
+
+        var firstResult = data.query.search[0];
+
+        content.innerHTML = "";
+
+        loadPage(firstResult.title);
+
+    });
+
+}
+
+/* =========================
+   LOAD PAGE
+========================= */
+
+function loadPage(title){
+
+    statusText.innerHTML = "Loading " + escapeHTML(title) + "...";
+
+    var url =
+        API +
+        "?origin=*" +
+        "&action=parse" +
+        "&page=" +
+        encodeURIComponent(title) +
+        "&prop=text" +
+        "&format=json";
+
+    getJSON(url, function(error, data){
+
+        if(error){
+            statusText.innerHTML = error;
+            return;
+        }
+
+        if(!data.parse){
+            statusText.innerHTML = "Failed to load page.";
+            return;
+        }
+
+        var html = data.parse.text["*"];
+
+        var temp = document.createElement("div");
+        temp.innerHTML = html;
+
+        cleanPage(temp);
+
+        var page = document.createElement("div");
+        page.className = "page";
+
+        var titleElement = document.createElement("h2");
+        titleElement.appendChild(document.createTextNode(title));
+        page.appendChild(titleElement);
+
+        var body = document.createElement("div");
+        body.innerHTML = temp.innerHTML;
+        page.appendChild(body);
+
+        content.innerHTML = "";
+        content.appendChild(page);
+
+        attachInternalLinks();
+
+        window.scrollTo(0, 0);
+
+        statusText.innerHTML = "Loaded: " + escapeHTML(title);
+
+    });
+
+}
 
 /* =========================
    CLEAN PAGE
@@ -120,14 +260,66 @@ function cleanPage(root){
     removeBySelector(root, ".reference");
     removeBySelector(root, "script");
     removeBySelector(root, "style");
+    removeBySelector(root, ".error");
+    removeBySelector(root, ".nomobile");
     removeBySelector(root, ".portable-infobox");
+    removeBySelector(root, ".wds-global-navigation-wrapper");
+    removeBySelector(root, ".fandom-community-header__background");
+    removeBySelector(root, ".page__right-rail");
+    removeBySelector(root, ".global-footer");
+    removeBySelector(root, ".license-description");
+    removeBySelector(root, ".noprint");
+    removeBySelector(root, ".ambox");
+    removeBySelector(root, ".notice");
+    removeBySelector(root, ".shortdescription");
+    removeBySelector(root, ".mw-cite-backlink");
+    removeBySelector(root, ".reference-text");
+    removeBySelector(root, ".audio-button");
     removeBySelector(root, ".tabber");
     removeBySelector(root, ".tabs");
     removeBySelector(root, ".gallery");
-    removeBySelector(root, ".audio-button");
-    removeBySelector(root, ".nomobile");
-    removeBySelector(root, ".noprint");
     removeBySelector(root, ".mw-parser-output > aside");
+
+    var tables = root.getElementsByTagName("table");
+    var i;
+
+    for(i = 0; i < tables.length; i++){
+        tables[i].style.display = "table";
+        tables[i].style.visibility = "visible";
+        tables[i].hidden = false;
+    }
+
+    var links = root.getElementsByTagName("a");
+
+    for(i = 0; i < links.length; i++){
+
+        var link = links[i];
+        var title = link.getAttribute("title");
+        var href = link.getAttribute("href");
+        var text = link.textContent || link.innerText || "";
+        var imgs = link.getElementsByTagName("img");
+
+        if(imgs.length > 0 && text.replace(/^\s+|\s+$/g, "").length < 2 && title){
+            link.innerHTML = escapeHTML(title);
+        }
+
+        if(href && href.indexOf("http") === 0){
+            link.setAttribute("target", "_blank");
+            continue;
+        }
+
+        var pageTitle = title;
+
+        if(!pageTitle && href && href.indexOf("/wiki/") === 0){
+            pageTitle = decodeURIComponent(href.replace("/wiki/", "")).replace(/_/g, " ");
+        }
+
+        if(pageTitle){
+            link.setAttribute("href", "#");
+            link.setAttribute("data-page-title", pageTitle);
+        }
+
+    }
 
     var images = root.getElementsByTagName("img");
 
@@ -135,26 +327,13 @@ function cleanPage(root){
         images[0].parentNode.removeChild(images[0]);
     }
 
-    var links = root.getElementsByTagName("a");
+    var paragraphs = root.getElementsByTagName("p");
 
-    for(var i = 0; i < links.length; i++){
-
-        var href = links[i].getAttribute("href");
-
-        if(href && href.indexOf("/wiki/") === 0){
-
-            var pageName =
-                decodeURIComponent(
-                    href.replace("/wiki/", "")
-                ).replace(/_/g, " ");
-
-            links[i].setAttribute(
-                "href",
-                "#" + encodeURIComponent(pageName)
-            );
-
+    for(i = paragraphs.length - 1; i >= 0; i--){
+        var txt = paragraphs[i].textContent || paragraphs[i].innerText || "";
+        if(txt.replace(/^\s+|\s+$/g, "") === ""){
+            paragraphs[i].parentNode.removeChild(paragraphs[i]);
         }
-
     }
 
 }
@@ -168,9 +347,39 @@ function removeBySelector(root, selector){
     var elements = root.querySelectorAll(selector);
 
     for(var i = elements.length - 1; i >= 0; i--){
-
         if(elements[i].parentNode){
             elements[i].parentNode.removeChild(elements[i]);
+        }
+    }
+
+}
+
+/* =========================
+   INTERNAL LINK HANDLING
+========================= */
+
+function attachInternalLinks(){
+
+    var links = content.getElementsByTagName("a");
+
+    for(var i = 0; i < links.length; i++){
+
+        var title = links[i].getAttribute("data-page-title");
+
+        if(title){
+
+            links[i].onclick = function(){
+
+                var targetTitle = this.getAttribute("data-page-title");
+
+                if(targetTitle){
+                    loadPage(targetTitle);
+                }
+
+                return false;
+
+            };
+
         }
 
     }
@@ -178,10 +387,13 @@ function removeBySelector(root, selector){
 }
 
 /* =========================
-   GET ALL PAGE TITLES
+   LOAD WIKI INDEX
 ========================= */
 
-function getAllPages(callback){
+function loadWikiIndex(){
+
+    content.innerHTML = "";
+    statusText.innerHTML = "Loading page list...";
 
     var pages = [];
 
@@ -199,332 +411,60 @@ function getAllPages(callback){
             url += "&apcontinue=" + encodeURIComponent(apcontinue);
         }
 
-        fetch(url)
-            .then(function(res) { return res.json(); })
-            .then(function(data) {
-                if(data.query && data.query.allpages){
-                    for(var i = 0; i < data.query.allpages.length; i++){
-                        pages.push(data.query.allpages[i].title);
-                    }
+        getJSON(url, function(error, data){
+
+            if(error){
+                statusText.innerHTML = error;
+                return;
+            }
+
+            if(data.query && data.query.allpages){
+
+                for(var i = 0; i < data.query.allpages.length; i++){
+                    pages.push(data.query.allpages[i]);
                 }
 
-                statusText.innerHTML = "Loaded page titles: " + pages.length;
+            }
 
-                // Stop early for quick test configurations if needed, or get all
-                if(data["continue"] && data["continue"].apcontinue && pages.length < 3000){
-                    loadBatch(data["continue"].apcontinue);
-                } else {
-                    callback(null, pages);
-                }
-            })
-            .catch(function(err) {
-                callback(err.message, null);
-            });
+            statusText.innerHTML = "Loaded " + pages.length + " page names...";
+
+            if(data["continue"] && data["continue"].apcontinue){
+                loadBatch(data["continue"].apcontinue);
+            }else{
+                showIndex(pages);
+            }
+
+        });
+
     }
 
     loadBatch("");
 
 }
 
-/* =========================
-   LOAD PAGE HTML WITH RETRIES (High Concurrency Protection)
-========================= */
+function showIndex(pages){
 
-function loadPage(title, callback, retries) {
-    if (typeof retries === 'undefined') retries = 3;
-    
-    var url =
-        API +
-        "?origin=*" +
-        "&action=parse" +
-        "&page=" +
-        encodeURIComponent(title) +
-        "&prop=text" +
-        "&format=json";
+    content.innerHTML = "";
 
-    fetch(url)
-        .then(function(res) {
-            // Handle HTTP 429 Too Many Requests (Rate Limiting)
-            if (res.status === 429 && retries > 0) {
-                var delay = 1000 * (4 - retries);
-                setTimeout(function() {
-                    loadPage(title, callback, retries - 1);
-                }, delay);
-                return;
-            }
-            if (!res.ok) throw new Error("HTTP " + res.status);
-            return res.json();
-        })
-        .then(function(data) {
-            if (!data || !data.parse) {
-                throw new Error("Parse missing");
-            }
-            var html = data.parse.text["*"];
-            var temp = document.createElement("div");
-            temp.innerHTML = html;
-            cleanPage(temp);
-            callback(null, temp.innerHTML);
-        })
-        .catch(function(err) {
-            if (retries > 0) {
-                setTimeout(function() {
-                    loadPage(title, callback, retries - 1);
-                }, 1000);
-            } else {
-                callback(err.message, null);
-            }
-        });
-}
+    for(var i = 0; i < pages.length; i++){
 
-/* =========================
-   EPUB BUILD
-========================= */
+        var title = pages[i].title;
 
-function buildEPUB(pagesData){
+        var div = document.createElement("div");
+        var link = document.createElement("a");
 
-    statusText.innerHTML = "Building EPUB...";
-    speedometer.innerHTML = "";
+        link.appendChild(document.createTextNode(title));
+        link.setAttribute("href", "#");
+        link.setAttribute("data-page-title", title);
 
-    var zip = new JSZip();
-
-    /* Mimetype */
-    zip.file(
-        "mimetype",
-        "application/epub+zip",
-        {
-            compression: "STORE"
-        }
-    );
-
-    /* META-INF */
-    zip.folder("META-INF").file(
-        "container.xml",
-        '<?xml version="1.0"?>' +
-        '<container version="1.0" ' +
-        'xmlns="urn:oasis:names:tc:opendocument:xmlns:container">' +
-        '<rootfiles>' +
-        '<rootfile full-path="OEBPS/content.opf" ' +
-        'media-type="application/oebps-package+xml"/>' +
-        '</rootfiles>' +
-        '</container>'
-    );
-
-    var oebps = zip.folder("OEBPS");
-
-    /* CSS */
-    oebps.file(
-        "style.css",
-        'body{font-family:serif;line-height:1.5;padding:1em;}' +
-        'table{border-collapse:collapse;width:100%;}' +
-        'td,th{border:1px solid black;padding:4px;}'
-    );
-
-    /* Chapters */
-    var manifest = '';
-    var spine = '';
-    var navPoints = '';
-
-    for(var i = 0; i < pagesData.length; i++){
-
-        var item = pagesData[i];
-        if(!item) continue;
-
-        var fileName = "page" + i + ".xhtml";
-
-        var chapter =
-'<?xml version="1.0" encoding="utf-8"?>' +
-'<html xmlns="http://www.w3.org/1999/xhtml">' +
-'<head>' +
-'<title>' + escapeHTML(item.title) + '</title>' +
-'<link rel="stylesheet" type="text/css" href="style.css"/>' +
-'</head>' +
-'<body>' +
-'<h1 id="' + encodeURIComponent(item.title) + '">' +
-escapeHTML(item.title) +
-'</h1>' +
-item.html +
-'</body>' +
-'</html>';
-
-        oebps.file(fileName, chapter);
-
-        manifest +=
-            '<item id="item' + i + '" ' +
-            'href="' + fileName + '" ' +
-            'media-type="application/xhtml+xml"/>';
-
-        spine +=
-            '<itemref idref="item' + i + '"/>';
-
-        navPoints +=
-            '<navPoint id="navPoint-' + i + '" playOrder="' + (i+1) + '">' +
-            '<navLabel><text>' +
-            escapeHTML(item.title) +
-            '</text></navLabel>' +
-            '<content src="' + fileName + '"/>' +
-            '</navPoint>';
+        div.appendChild(link);
+        content.appendChild(div);
 
     }
 
-    manifest +=
-        '<item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>' +
-        '<item id="css" href="style.css" media-type="text/css"/>';
+    attachInternalLinks();
 
-    /* content.opf */
-    oebps.file(
-        "content.opf",
-'<?xml version="1.0" encoding="utf-8"?>' +
-'<package version="2.0" xmlns="http://www.idpf.org/2007/opf" unique-identifier="BookId">' +
-'<metadata xmlns:dc="http://purl.org/dc/elements/1.1/">' +
-'<dc:title>Genshin Impact Wiki</dc:title>' +
-'<dc:language>en</dc:language>' +
-'<dc:identifier id="BookId">genshinwiki</dc:identifier>' +
-'</metadata>' +
-'<manifest>' +
-manifest +
-'</manifest>' +
-'<spine toc="ncx">' +
-spine +
-'</spine>' +
-'</package>'
-    );
-
-    /* toc.ncx */
-    oebps.file(
-        "toc.ncx",
-'<?xml version="1.0" encoding="UTF-8"?>' +
-'<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">' +
-'<head>' +
-'<meta name="dtb:uid" content="genshinwiki"/>' +
-'</head>' +
-'<docTitle><text>Genshin Impact Wiki</text></docTitle>' +
-'<navMap>' +
-navPoints +
-'</navMap>' +
-'</ncx>'
-    );
-
-    zip.generateAsync({
-        type:"blob"
-    }).then(function(blob){
-
-        saveAs(blob, "Genshin_Impact_Wiki.epub");
-
-        statusText.innerHTML = "Finished EPUB download.";
-        downloadButton.disabled = false;
-
-    });
-
-}
-
-/* =========================
-   DOWNLOAD ENTIRE WIKI
-========================= */
-
-function downloadWiki(){
-
-    content.innerHTML = "";
-    statusText.innerHTML = "Loading wiki index...";
-    speedometer.innerHTML = "";
-    downloadButton.disabled = true;
-
-    getAllPages(function(error, pages){
-
-        if(error){
-            statusText.innerHTML = error;
-            downloadButton.disabled = false;
-            return;
-        }
-
-        var results = new Array(pages.length);
-        
-        // Optimizations: High concurrency level (up to 30 concurrent streams)
-        var maxConcurrency = 30; 
-        var currentIndex = 0;
-        var completedCount = 0;
-
-        var startTime = Date.now();
-        var lastCompletedCount = 0;
-        var lastReportTime = startTime;
-
-        // Simple Speedometer updater
-        var speedInterval = setInterval(function() {
-            var now = Date.now();
-            var duration = (now - lastReportTime) / 1000;
-            var processed = completedCount - lastCompletedCount;
-            var rps = (processed / duration).toFixed(1);
-            
-            speedometer.innerHTML = "Speed: " + rps + " pages/sec";
-            
-            lastReportTime = now;
-            lastCompletedCount = completedCount;
-            
-            if (completedCount === pages.length) {
-                clearInterval(speedInterval);
-            }
-        }, 1000);
-
-        function updateStatus() {
-            statusText.innerHTML =
-                "Downloading pages: " +
-                completedCount +
-                " / " +
-                pages.length;
-        }
-
-        function startWorker() {
-            while (currentIndex < pages.length && (currentIndex - completedCount) < maxConcurrency) {
-                (function(index) {
-                    var title = pages[index];
-                    currentIndex++;
-
-                    // Create light placeholder elements as they appear
-                    var pageElement = document.createElement("div");
-                    pageElement.className = "page";
-                    pageElement.id = "preview-" + index;
-                    pageElement.innerHTML = "<h3>" + escapeHTML(title) + "</h3><p class='loading'>Downloading...</p>";
-                    content.appendChild(pageElement);
-
-                    loadPage(title, function(err, html){
-                        completedCount++;
-
-                        var element = document.getElementById("preview-" + index);
-                        if (!err) {
-                            results[index] = {
-                                title: title,
-                                html: html
-                            };
-                            if (element) {
-                                element.innerHTML = "<h1>" + escapeHTML(title) + "</h1>" + html;
-                            }
-                        } else {
-                            results[index] = {
-                                title: title,
-                                html: "<p class='error'>Failed to download content.</p>"
-                            };
-                            if (element) {
-                                element.innerHTML = "<h1>" + escapeHTML(title) + "</h1><p class='error'>Failed to download content.</p>";
-                            }
-                        }
-
-                        updateStatus();
-
-                        if (completedCount === pages.length) {
-                            var finalResults = results.filter(function(r) { return r !== undefined; });
-                            buildEPUB(finalResults);
-                        } else {
-                            // Launch next task in queue
-                            startWorker();
-                        }
-                    });
-                })(currentIndex);
-            }
-        }
-
-        updateStatus();
-        startWorker();
-
-    });
+    statusText.innerHTML = "Wiki index loaded: " + pages.length + " pages.";
 
 }
 
@@ -543,14 +483,29 @@ function escapeHTML(text){
 }
 
 /* =========================
-   BUTTON
+   BUTTON EVENTS
 ========================= */
 
-downloadButton.onclick = function(){
-
-    downloadWiki();
-
+searchButton.onclick = function(){
+    searchPage();
     return false;
+};
+
+indexButton.onclick = function(){
+    loadWikiIndex();
+    return false;
+};
+
+searchInput.onkeydown = function(e){
+
+    e = e || window.event;
+
+    var key = e.keyCode || e.which;
+
+    if(key === 13){
+        searchPage();
+        return false;
+    }
 
 };
 

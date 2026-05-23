@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>Genshin Impact Wiki Reader</title>
+<title>Genshin Impact Wiki Reader - Kindle Compatible</title>
 
 <style>
 body{
@@ -13,15 +13,19 @@ body{
     font-family:serif;
     margin:20px;
     line-height:1.5;
+    font-size:18px;
 }
 
 input{
-    width:300px;
-    padding:4px;
+    width:260px;
+    padding:6px;
+    font-size:18px;
 }
 
 button{
-    padding:4px 8px;
+    padding:8px 12px;
+    margin:4px;
+    font-size:18px;
 }
 
 img{
@@ -50,7 +54,7 @@ a{
 }
 
 .page{
-    margin-top:40px;
+    margin-top:30px;
 }
 
 .loading{
@@ -66,467 +70,445 @@ a{
 
 <h1>Genshin Impact Wiki Reader</h1>
 
-<input
-    id="search"
-    placeholder="Search page..."
->
+<input id="search" placeholder="Search page...">
 
-<button onclick="searchPage()">
+<button id="searchButton" type="button">
 Search
 </button>
 
-<button onclick="loadAllPages()">
-Load Entire Wiki
+<button id="indexButton" type="button">
+Load Wiki Index
 </button>
 
 <p id="status"></p>
 
 <div id="content"></div>
 
-<script>
-const API =
-"https://genshin-impact.fandom.com/api.php";
+<script type="text/javascript">
+/*
+Kindle-compatible version:
+- No async / await
+- No fetch()
+- No const / let
+- No arrow functions
+- No inline onclick
+- Uses XMLHttpRequest
+*/
 
-const content =
-document.getElementById("content");
+var API = "https://genshin-impact.fandom.com/api.php";
 
-const statusText =
-document.getElementById("status");
+var content = document.getElementById("content");
+var statusText = document.getElementById("status");
+var searchInput = document.getElementById("search");
+var searchButton = document.getElementById("searchButton");
+var indexButton = document.getElementById("indexButton");
+
+/* =========================
+   BASIC AJAX
+========================= */
+
+function getJSON(url, callback){
+
+    var xhr = new XMLHttpRequest();
+
+    xhr.onreadystatechange = function(){
+
+        if(xhr.readyState === 4){
+
+            if(xhr.status >= 200 && xhr.status < 300){
+
+                try{
+                    var data = JSON.parse(xhr.responseText);
+                    callback(null, data);
+                }catch(e){
+                    callback("Could not read response.", null);
+                }
+
+            }else{
+                callback("Request failed. Status: " + xhr.status, null);
+            }
+
+        }
+
+    };
+
+    xhr.open("GET", url, true);
+    xhr.send(null);
+
+}
 
 /* =========================
    SEARCH
 ========================= */
 
-async function searchPage(){
+function searchPage(){
 
-    const query =
-    document.getElementById("search")
-    .value
-    .trim();
+    var query = searchInput.value.replace(/^\s+|\s+$/g, "");
 
-    if(!query) return;
-
-    statusText.textContent =
-    "Searching...";
-
-    const url =
-    API +
-    "?origin=*" +
-    "&action=query" +
-    "&list=search" +
-    "&srsearch=" +
-    encodeURIComponent(query) +
-    "&format=json";
-
-    const response =
-    await fetch(url);
-
-    const data =
-    await response.json();
-
-    if(
-        !data.query ||
-        !data.query.search ||
-        data.query.search.length === 0
-    ){
-        statusText.textContent =
-        "No results.";
+    if(!query){
+        statusText.innerHTML = "Please enter a page name.";
         return;
     }
 
-    const firstResult =
-    data.query.search[0];
+    statusText.innerHTML = "Searching...";
 
-    content.innerHTML = "";
+    var url =
+        API +
+        "?origin=*" +
+        "&action=query" +
+        "&list=search" +
+        "&srsearch=" +
+        encodeURIComponent(query) +
+        "&format=json";
 
-    await loadPage(firstResult.title);
+    getJSON(url, function(error, data){
 
-    statusText.textContent =
-    "Loaded: " +
-    firstResult.title;
+        if(error){
+            statusText.innerHTML = error;
+            return;
+        }
+
+        if(
+            !data.query ||
+            !data.query.search ||
+            data.query.search.length === 0
+        ){
+            statusText.innerHTML = "No results.";
+            return;
+        }
+
+        var firstResult = data.query.search[0];
+
+        content.innerHTML = "";
+
+        loadPage(firstResult.title);
+
+    });
+
 }
 
 /* =========================
    LOAD PAGE
 ========================= */
 
-async function loadPage(title){
+function loadPage(title){
 
-    statusText.textContent =
-    "Loading " + title + "...";
+    statusText.innerHTML = "Loading " + escapeHTML(title) + "...";
 
-    const url =
-    API +
-    "?origin=*" +
-    "&action=parse" +
-    "&page=" +
-    encodeURIComponent(title) +
-    "&prop=text" +
-    "&format=json";
+    var url =
+        API +
+        "?origin=*" +
+        "&action=parse" +
+        "&page=" +
+        encodeURIComponent(title) +
+        "&prop=text" +
+        "&format=json";
 
-    const response =
-    await fetch(url);
+    getJSON(url, function(error, data){
 
-    const data =
-    await response.json();
+        if(error){
+            statusText.innerHTML = error;
+            return;
+        }
 
-    if(!data.parse){
+        if(!data.parse){
+            statusText.innerHTML = "Failed to load page.";
+            return;
+        }
 
-        statusText.textContent =
-        "Failed to load page.";
+        var html = data.parse.text["*"];
 
-        return;
-    }
+        var temp = document.createElement("div");
+        temp.innerHTML = html;
 
-    const html =
-    data.parse.text["*"];
+        cleanPage(temp);
 
-    const parser =
-    new DOMParser();
+        var page = document.createElement("div");
+        page.className = "page";
 
-    const doc =
-    parser.parseFromString(
-        html,
-        "text/html"
-    );
+        var titleElement = document.createElement("h2");
+        titleElement.appendChild(document.createTextNode(title));
+        page.appendChild(titleElement);
 
-    cleanPage(doc);
+        var body = document.createElement("div");
+        body.innerHTML = temp.innerHTML;
+        page.appendChild(body);
 
-    const page =
-    document.createElement("div");
+        content.innerHTML = "";
+        content.appendChild(page);
 
-    page.className = "page";
+        attachInternalLinks();
 
-    const titleElement =
-    document.createElement("h2");
+        window.scrollTo(0, 0);
 
-    titleElement.textContent =
-    title;
-
-    page.appendChild(titleElement);
-
-    const body =
-    document.createElement("div");
-
-    body.innerHTML =
-    doc.body.innerHTML;
-
-    page.appendChild(body);
-
-    content.innerHTML = "";
-
-    content.appendChild(page);
-
-    /* Attach internal link click handlers AFTER the page is inserted.
-       This makes page links work correctly.
-    */
-    content.querySelectorAll("a[data-page-title]").forEach(link => {
-
-        link.addEventListener("click", async function(e){
-
-            e.preventDefault();
-
-            const targetTitle =
-            this.getAttribute("data-page-title");
-
-            if(targetTitle){
-
-                await loadPage(targetTitle);
-
-            }
-
-        });
+        statusText.innerHTML = "Loaded: " + escapeHTML(title);
 
     });
 
-    window.scrollTo(0,0);
-
-    statusText.textContent =
-    "Loaded: " + title;
 }
 
 /* =========================
    CLEAN PAGE
 ========================= */
 
-function cleanPage(doc){
+function cleanPage(root){
 
-    const remove = [
+    removeBySelector(root, ".mw-editsection");
+    removeBySelector(root, ".toc");
+    removeBySelector(root, ".navbox");
+    removeBySelector(root, ".reflist");
+    removeBySelector(root, ".reference");
+    removeBySelector(root, "script");
+    removeBySelector(root, "style");
+    removeBySelector(root, ".error");
+    removeBySelector(root, ".nomobile");
+    removeBySelector(root, ".portable-infobox");
+    removeBySelector(root, ".wds-global-navigation-wrapper");
+    removeBySelector(root, ".fandom-community-header__background");
+    removeBySelector(root, ".page__right-rail");
+    removeBySelector(root, ".global-footer");
+    removeBySelector(root, ".license-description");
+    removeBySelector(root, ".noprint");
+    removeBySelector(root, ".ambox");
+    removeBySelector(root, ".notice");
+    removeBySelector(root, ".shortdescription");
+    removeBySelector(root, ".mw-cite-backlink");
+    removeBySelector(root, ".reference-text");
+    removeBySelector(root, ".audio-button");
+    removeBySelector(root, ".tabber");
+    removeBySelector(root, ".tabs");
+    removeBySelector(root, ".gallery");
+    removeBySelector(root, ".mw-parser-output > aside");
 
-        ".mw-editsection",
-        ".toc",
-        ".navbox",
-        ".reflist",
-        ".reference",
-        "script",
-        "style",
-        ".error",
-        ".nomobile",
-        ".portable-infobox",
-        ".wds-global-navigation-wrapper",
-        ".fandom-community-header__background",
-        ".page__right-rail",
-        ".global-footer",
-        ".license-description",
-        ".noprint",
-        ".ambox",
-        ".notice",
-        ".shortdescription",
-        ".mw-cite-backlink",
-        ".reference-text",
-        ".audio-button",
-        ".tabber",
-        ".tabs",
-        ".gallery",
-        ".mw-parser-output > aside"
-    ];
+    var tables = root.getElementsByTagName("table");
+    var i;
 
-    remove.forEach(selector => {
+    for(i = 0; i < tables.length; i++){
+        tables[i].style.display = "table";
+        tables[i].style.visibility = "visible";
+        tables[i].hidden = false;
+    }
 
-        doc.querySelectorAll(selector)
-        .forEach(el => el.remove());
+    var links = root.getElementsByTagName("a");
 
-    });
+    for(i = 0; i < links.length; i++){
 
-    /* FORCE TABLES TO WORK */
+        var link = links[i];
+        var title = link.getAttribute("title");
+        var href = link.getAttribute("href");
+        var text = link.textContent || link.innerText || "";
+        var imgs = link.getElementsByTagName("img");
 
-    doc.querySelectorAll("table").forEach(table => {
-
-        table.style.display = "table";
-        table.style.visibility = "visible";
-        table.hidden = false;
-
-        table.removeAttribute("style");
-
-        table.querySelectorAll("*")
-        .forEach(el => {
-
-            el.removeAttribute("style");
-
-        });
-
-    });
-
-    /* REMOVE IMAGES BUT KEEP THEIR NAMES */
-
-    doc.querySelectorAll("a").forEach(link => {
-
-        const title =
-        link.getAttribute("title");
-
-        const text =
-        link.textContent.trim();
-
-        const hasImage =
-        link.querySelector("img");
-
-        /* ascension material fix */
-
-        if(
-            hasImage &&
-            (
-                !text ||
-                text.length < 2
-            ) &&
-            title
-        ){
-
-            link.innerHTML = title;
-
+        if(imgs.length > 0 && text.replace(/^\s+|\s+$/g, "").length < 2 && title){
+            link.innerHTML = escapeHTML(title);
         }
 
-    });
-
-    /* REMOVE ALL IMAGES */
-
-    doc.querySelectorAll("img")
-    .forEach(img => {
-
-        img.remove();
-
-    });
-
-    /* INTERNAL LINKS
-       Important:
-       Do NOT attach onclick here because this document is later copied with innerHTML.
-       Event handlers assigned in this temporary parsed document will be lost.
-       Instead, store the target page title in data-page-title and attach clicks after insertion.
-    */
-
-    doc.querySelectorAll("a").forEach(link => {
-
-        const title =
-        link.getAttribute("title");
-
-        const href =
-        link.getAttribute("href");
-
-        if(
-            href &&
-            href.startsWith("http")
-        ){
-            link.target = "_blank";
-            return;
+        if(href && href.indexOf("http") === 0){
+            link.setAttribute("target", "_blank");
+            continue;
         }
 
-        let pageTitle = title;
+        var pageTitle = title;
 
-        if(
-            !pageTitle &&
-            href &&
-            href.startsWith("/wiki/")
-        ){
-            pageTitle =
-            decodeURIComponent(
-                href.replace("/wiki/", "")
-            ).replace(/_/g, " ");
+        if(!pageTitle && href && href.indexOf("/wiki/") === 0){
+            pageTitle = decodeURIComponent(href.replace("/wiki/", "")).replace(/_/g, " ");
         }
 
         if(pageTitle){
-
-            link.href = "#";
+            link.setAttribute("href", "#");
             link.setAttribute("data-page-title", pageTitle);
-
         }
 
-    });
+    }
 
-    /* REMOVE EMPTY ELEMENTS */
+    var images = root.getElementsByTagName("img");
 
-    doc.querySelectorAll("p").forEach(p => {
+    while(images.length > 0){
+        images[0].parentNode.removeChild(images[0]);
+    }
 
-        if(
-            !p.textContent.trim()
-        ){
-            p.remove();
+    var paragraphs = root.getElementsByTagName("p");
+
+    for(i = paragraphs.length - 1; i >= 0; i--){
+        var txt = paragraphs[i].textContent || paragraphs[i].innerText || "";
+        if(txt.replace(/^\s+|\s+$/g, "") === ""){
+            paragraphs[i].parentNode.removeChild(paragraphs[i]);
         }
+    }
 
-    });
+}
+
+function removeBySelector(root, selector){
+
+    if(!root.querySelectorAll){
+        return;
+    }
+
+    var elements = root.querySelectorAll(selector);
+
+    for(var i = elements.length - 1; i >= 0; i--){
+        if(elements[i].parentNode){
+            elements[i].parentNode.removeChild(elements[i]);
+        }
+    }
 
 }
 
 /* =========================
-   LOAD ENTIRE WIKI
+   INTERNAL LINK HANDLING
 ========================= */
 
-async function loadAllPages(){
+function attachInternalLinks(){
 
-    content.innerHTML = "";
+    var links = content.getElementsByTagName("a");
 
-    statusText.textContent =
-    "Loading page list...";
+    for(var i = 0; i < links.length; i++){
 
-    let apcontinue = "";
+        var title = links[i].getAttribute("data-page-title");
 
-    let pages = [];
+        if(title){
 
-    while(true){
+            links[i].onclick = function(){
 
-        let url =
-        API +
-        "?origin=*" +
-        "&action=query" +
-        "&list=allpages" +
-        "&aplimit=max" +
-        "&format=json";
+                var targetTitle = this.getAttribute("data-page-title");
 
-        if(apcontinue){
+                if(targetTitle){
+                    loadPage(targetTitle);
+                }
 
-            url +=
-            "&apcontinue=" +
-            encodeURIComponent(apcontinue);
+                return false;
 
-        }
-
-        const response =
-        await fetch(url);
-
-        const data =
-        await response.json();
-
-        pages =
-        pages.concat(
-            data.query.allpages
-        );
-
-        if(data.continue){
-
-            apcontinue =
-            data.continue.apcontinue;
-
-        }else{
-
-            break;
+            };
 
         }
 
     }
 
-    statusText.textContent =
-    "Found " +
-    pages.length +
-    " pages.";
+}
+
+/* =========================
+   LOAD WIKI INDEX
+========================= */
+
+function loadWikiIndex(){
+
+    content.innerHTML = "";
+    statusText.innerHTML = "Loading page list...";
+
+    var pages = [];
+
+    function loadBatch(apcontinue){
+
+        var url =
+            API +
+            "?origin=*" +
+            "&action=query" +
+            "&list=allpages" +
+            "&aplimit=500" +
+            "&format=json";
+
+        if(apcontinue){
+            url += "&apcontinue=" + encodeURIComponent(apcontinue);
+        }
+
+        getJSON(url, function(error, data){
+
+            if(error){
+                statusText.innerHTML = error;
+                return;
+            }
+
+            if(data.query && data.query.allpages){
+
+                for(var i = 0; i < data.query.allpages.length; i++){
+                    pages.push(data.query.allpages[i]);
+                }
+
+            }
+
+            statusText.innerHTML = "Loaded " + pages.length + " page names...";
+
+            if(data["continue"] && data["continue"].apcontinue){
+                loadBatch(data["continue"].apcontinue);
+            }else{
+                showIndex(pages);
+            }
+
+        });
+
+    }
+
+    loadBatch("");
+
+}
+
+function showIndex(pages){
 
     content.innerHTML = "";
 
-    for(
-        let i = 0;
-        i < pages.length;
-        i++
-    ){
+    for(var i = 0; i < pages.length; i++){
 
-        const title =
-        pages[i].title;
+        var title = pages[i].title;
 
-        const div =
-        document.createElement("div");
+        var div = document.createElement("div");
+        var link = document.createElement("a");
 
-        const link =
-        document.createElement("a");
-
-        link.textContent =
-        title;
-
-        link.href = "#";
-
-        link.onclick =
-        async function(e){
-
-            e.preventDefault();
-
-            await loadPage(title);
-
-        };
+        link.appendChild(document.createTextNode(title));
+        link.setAttribute("href", "#");
+        link.setAttribute("data-page-title", title);
 
         div.appendChild(link);
-
         content.appendChild(div);
 
     }
 
-    statusText.textContent =
-    "Entire wiki index loaded.";
+    attachInternalLinks();
+
+    statusText.innerHTML = "Wiki index loaded: " + pages.length + " pages.";
 
 }
 
 /* =========================
-   ENTER KEY SEARCH
+   UTILS
 ========================= */
 
-document
-.getElementById("search")
-.addEventListener(
-    "keydown",
-    function(e){
+function escapeHTML(text){
 
-        if(e.key === "Enter"){
+    return String(text)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
 
-            searchPage();
+}
 
-        }
+/* =========================
+   BUTTON EVENTS
+========================= */
 
+searchButton.onclick = function(){
+    searchPage();
+    return false;
+};
+
+indexButton.onclick = function(){
+    loadWikiIndex();
+    return false;
+};
+
+searchInput.onkeydown = function(e){
+
+    e = e || window.event;
+
+    var key = e.keyCode || e.which;
+
+    if(key === 13){
+        searchPage();
+        return false;
     }
-);
+
+};
+
 </script>
 
 </body>

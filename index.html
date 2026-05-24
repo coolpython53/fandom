@@ -1,775 +1,515 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Wiki to Markdown Suite</title>
-    
-    <!-- JSZip -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <!-- FileSaver -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+<title>Genshin Impact Wiki Reader - Kindle Compatible</title>
+
+<style>
+body{
+    background:white;
+    color:black;
+    font-family:serif;
+    margin:20px;
+    line-height:1.5;
+    font-size:18px;
+}
+
+input{
+    width:260px;
+    padding:6px;
+    font-size:18px;
+}
+
+button{
+    padding:8px 12px;
+    margin:4px;
+    font-size:18px;
+}
+
+img{
+    display:none;
+}
+
+table{
+    border-collapse:collapse;
+    width:100%;
+    display:block;
+    overflow:auto;
+    margin-top:10px;
+    margin-bottom:10px;
+}
+
+td, th{
+    border:1px solid black;
+    padding:4px;
+    vertical-align:top;
+}
+
+a{
+    color:blue;
+    cursor:pointer;
+    text-decoration:underline;
+}
+
+.page{
+    margin-top:30px;
+}
+
+.loading{
+    color:gray;
+}
+
+.hidden{
+    display:none;
+}
+</style>
 </head>
 <body>
 
-    <!-- HEADER -->
-    <h1>Wiki to Markdown Convertor</h1>
-    <p>Crawl, convert, and download entire Fandom/MediaWiki platforms to markdown documents with fully parsed lists, media, and nested tables.</p>
-    
-    <hr />
+<h1>Genshin Impact Wiki Reader</h1>
 
-    <!-- CRAWLER CONFIGURATION -->
-    <h2>Crawler Setup</h2>
-    <ul>
-        <li>Target API: genshin-impact.fandom.com</li>
-        <li>Connection Controller: Static (2000 Simultaneous Connections)</li>
-        <li>Target Range: Entire Wiki (All Pages)</li>
-        <li>Export Format: Individual Markdown ZIP Archive</li>
-    </ul>
+<input id="search" placeholder="Search page...">
 
-    <!-- Single Action Trigger -->
-    <button id="downloadButton" type="button">run</button>
-    <p id="status"></p>
+<button id="searchButton" type="button">
+Search
+</button>
 
-    <hr />
+<button id="indexButton" type="button">
+Load Wiki Index
+</button>
 
-    <!-- TELEMETRY / PROGRESS DASHBOARD -->
-    <div id="dashboardWrapper" style="display: none;">
-        <h2>Conversion Telemetry</h2>
-        <div id="speedometer"></div>
-        <div id="adaptiveStatus" style="font-weight: bold; margin-bottom: 10px;"></div>
-        
-        <!-- Plain browser-rendered progress bar -->
-        <p>Progress: <progress id="progressBar" value="0" max="100" style="width: 100%;"></progress></p>
+<p id="status"></p>
 
-        <!-- Numeric stats list -->
-        <ul>
-            <li>Catalog Index: <span id="dashTotal">-</span></li>
-            <li>Downloaded: <span id="dashDownloaded">0</span></li>
-            <li>Active Streams: <span id="dashActive">0</span></li>
-            <li>Failures: <span id="dashErrors">0</span></li>
-        </ul>
+<div id="content"></div>
 
-        <!-- Failure Recovery Panel -->
-        <div id="retryControlsContainer" style="display: none;">
-            <p><strong>Connection Failures Detected:</strong> Some pages timed out.</p>
-            <button id="retryFailedBtn" type="button">Retry Failures</button>
-            <button id="forceBuildBtn" type="button">Ignore & Pack</button>
-        </div>
-        
-        <hr />
-    </div>
+<script type="text/javascript">
+/*
+Kindle-compatible version:
+- No async / await
+- No fetch()
+- No const / let
+- No arrow functions
+- No inline onclick
+- Uses XMLHttpRequest
+*/
 
-    <!-- DIAGNOSTICS LOG -->
-    <h2>Live Diagnostics Engine</h2>
-    <div id="consoleLog" style="height: 180px; overflow-y: scroll; border: 1px solid #000; font-family: monospace; padding: 5px;">
-        <div>[System State Idle] Awaiting run command.</div>
-    </div>
+var API = "https://genshin-impact.fandom.com/api.php";
 
-    <hr />
+var content = document.getElementById("content");
+var statusText = document.getElementById("status");
+var searchInput = document.getElementById("search");
+var searchButton = document.getElementById("searchButton");
+var indexButton = document.getElementById("indexButton");
 
-    <!-- LIVE CONVERSION FEED / PREVIEW -->
-    <h2>Live Feed Output</h2>
-    <p>Preview of markdown rendering vs real raw code layout generated.</p>
-    
-    <div>
-        <button id="btnViewMd" type="button">Show Markdown Code</button>
-        <button id="btnViewRendered" type="button">Show Visual Layout</button>
-    </div>
-    
-    <br />
+/* =========================
+   BASIC AJAX
+========================= */
 
-    <!-- Markdown Code Terminal -->
-    <div id="mdContainer">
-        <textarea id="liveMarkdownConsole" readonly rows="20" style="width: 100%; font-family: monospace;" placeholder="No conversion running yet. Once started, processed markdown documents will stream here in real-time."></textarea>
-    </div>
+function getJSON(url, callback){
 
-    <!-- Rendered Markdown Sandbox Panel -->
-    <div id="renderedContainer" style="display: none;">
-        <div id="liveRenderedConsole" style="border: 1px solid #000; padding: 20px; min-height: 300px; line-height: 1.6;">
-            <p>No converted page visual previews loaded yet.</p>
-        </div>
-    </div>
+    var xhr = new XMLHttpRequest();
 
-    <br />
+    xhr.onreadystatechange = function(){
 
-    <!-- Mini tracker feed -->
-    <strong>Streaming Tracker (Last 5 Actions)</strong>
-    <div id="liveFeed" style="font-family: monospace; font-size: 12px; border: 1px dashed #000; padding: 5px;">
-        <div>Live tracker is idle.</div>
-    </div>
+        if(xhr.readyState === 4){
 
-    <hr />
+            if(xhr.status >= 200 && xhr.status < 300){
 
-    <footer>
-        <p>Developed to perform clean Wiki page extraction and DOM reconstruction to strict markdown layout. Running static parallel connection architecture directly on standard wiki pools.</p>
-    </footer>
-
-    <!-- MAIN CONVERTER SCRIPT -->
-    <script type="text/javascript">
-        /*
-        * WIKI TO MARKDOWN COMPILER
-        * ------------------------------------------------------------------------
-        * Highly concurrent DOM mapping algorithm designed to parse custom wiki 
-        * payloads directly to fully styled Markdown (.md) documents.
-        */
-
-        var statusText = document.getElementById("status");
-        var speedometer = document.getElementById("speedometer");
-        var adaptiveStatus = document.getElementById("adaptiveStatus");
-        var downloadButton = document.getElementById("downloadButton");
-        var consoleLog = document.getElementById("consoleLog");
-
-        // Tabs Toggle Elements
-        var btnViewMd = document.getElementById("btnViewMd");
-        var btnViewRendered = document.getElementById("btnViewRendered");
-        var mdContainer = document.getElementById("mdContainer");
-        var renderedContainer = document.getElementById("renderedContainer");
-        var liveMarkdownConsole = document.getElementById("liveMarkdownConsole");
-        var liveRenderedConsole = document.getElementById("liveRenderedConsole");
-
-        // Globals
-        var globalDOMParser = new DOMParser();
-        var globalTitleMap = {};
-
-        /* ========================================================================
-           CONSOLE & LIVE PREVIEW NAVIGATION LOGIC
-           ======================================================================== */
-        btnViewMd.onclick = function() {
-            mdContainer.style.display = "block";
-            renderedContainer.style.display = "none";
-        };
-
-        btnViewRendered.onclick = function() {
-            renderedContainer.style.display = "block";
-            mdContainer.style.display = "none";
-        };
-
-        function logToConsole(message, type) {
-            var item = document.createElement("div");
-            var timestamp = new Date().toISOString().split('T')[1].slice(0, -1);
-            item.textContent = "[" + timestamp + "] (" + (type || "info").toUpperCase() + ") " + message;
-            
-            consoleLog.appendChild(item);
-            if (consoleLog.children.length > 200) {
-                consoleLog.removeChild(consoleLog.firstChild);
-            }
-            consoleLog.scrollTop = consoleLog.scrollHeight;
-        }
-
-        /* ========================================================================
-           COMPREHENSIVE HTML-TO-MARKDOWN CONVERTER ENGINE
-           ======================================================================== */
-        function htmlToMarkdown(rootNode) {
-            
-            // Clean undesirable elements first
-            removeBySelector(rootNode, ".mw-editsection");
-            removeBySelector(rootNode, ".toc");
-            removeBySelector(rootNode, ".navbox");
-            removeBySelector(rootNode, ".reflist");
-            removeBySelector(rootNode, ".reference");
-            removeBySelector(rootNode, "script");
-            removeBySelector(rootNode, "style");
-            removeBySelector(rootNode, ".portable-infobox");
-            removeBySelector(rootNode, ".tabber");
-            removeBySelector(rootNode, ".tabs");
-            removeBySelector(rootNode, ".gallery");
-            removeBySelector(rootNode, ".audio-button");
-            removeBySelector(rootNode, ".nomobile");
-            removeBySelector(rootNode, ".noprint");
-            removeBySelector(rootNode, ".mw-parser-output > aside");
-
-            // DELETE ALL IMAGES: Completely drop standard images and parent noscript blocks
-            removeBySelector(rootNode, "img");
-            removeBySelector(rootNode, "noscript");
-
-            // Process Links to resolve locally relative pathing
-            var links = rootNode.getElementsByTagName("a");
-            for (var i = 0; i < links.length; i++) {
-                var href = links[i].getAttribute("href");
-                if (href && href.indexOf("/wiki/") === 0) {
-                    var path = href.replace("/wiki/", "");
-                    var hashIndex = path.indexOf("#");
-                    var pagePart = hashIndex !== -1 ? path.substring(0, hashIndex) : path;
-                    var hashPart = hashIndex !== -1 ? path.substring(hashIndex) : "";
-
-                    var pageName = decodeURIComponent(pagePart).replace(/_/g, " ").trim();
-                    var lowerPageName = pageName.toLowerCase();
-
-                    if (globalTitleMap && globalTitleMap[lowerPageName]) {
-                        links[i].setAttribute("href", "./" + globalTitleMap[lowerPageName] + hashPart);
-                    } else {
-                        links[i].setAttribute("href", "https://genshin-impact.fandom.com/wiki/" + pagePart + hashPart);
-                    }
+                try{
+                    var data = JSON.parse(xhr.responseText);
+                    callback(null, data);
+                }catch(e){
+                    callback("Could not read response.", null);
                 }
+
+            }else{
+                callback("Request failed. Status: " + xhr.status, null);
             }
 
-            // Recursively evaluate DOM tree Nodes into Markdown characters
-            function traverse(node, listDepth = 0) {
-                if (node.nodeType === Node.TEXT_NODE) {
-                    return node.textContent;
-                }
-                if (node.nodeType !== Node.ELEMENT_NODE) {
-                    return "";
+        }
+
+    };
+
+    xhr.open("GET", url, true);
+    xhr.send(null);
+
+}
+
+/* =========================
+   SEARCH
+========================= */
+
+function searchPage(){
+
+    var query = searchInput.value.replace(/^\s+|\s+$/g, "");
+
+    if(!query){
+        statusText.innerHTML = "Please enter a page name.";
+        return;
+    }
+
+    statusText.innerHTML = "Searching...";
+
+    var url =
+        API +
+        "?origin=*" +
+        "&action=query" +
+        "&list=search" +
+        "&srsearch=" +
+        encodeURIComponent(query) +
+        "&format=json";
+
+    getJSON(url, function(error, data){
+
+        if(error){
+            statusText.innerHTML = error;
+            return;
+        }
+
+        if(
+            !data.query ||
+            !data.query.search ||
+            data.query.search.length === 0
+        ){
+            statusText.innerHTML = "No results.";
+            return;
+        }
+
+        var firstResult = data.query.search[0];
+
+        content.innerHTML = "";
+
+        loadPage(firstResult.title);
+
+    });
+
+}
+
+/* =========================
+   LOAD PAGE
+========================= */
+
+function loadPage(title){
+
+    statusText.innerHTML = "Loading " + escapeHTML(title) + "...";
+
+    var url =
+        API +
+        "?origin=*" +
+        "&action=parse" +
+        "&page=" +
+        encodeURIComponent(title) +
+        "&prop=text" +
+        "&format=json";
+
+    getJSON(url, function(error, data){
+
+        if(error){
+            statusText.innerHTML = error;
+            return;
+        }
+
+        if(!data.parse){
+            statusText.innerHTML = "Failed to load page.";
+            return;
+        }
+
+        var html = data.parse.text["*"];
+
+        var temp = document.createElement("div");
+        temp.innerHTML = html;
+
+        cleanPage(temp);
+
+        var page = document.createElement("div");
+        page.className = "page";
+
+        var titleElement = document.createElement("h2");
+        titleElement.appendChild(document.createTextNode(title));
+        page.appendChild(titleElement);
+
+        var body = document.createElement("div");
+        body.innerHTML = temp.innerHTML;
+        page.appendChild(body);
+
+        content.innerHTML = "";
+        content.appendChild(page);
+
+        attachInternalLinks();
+
+        window.scrollTo(0, 0);
+
+        statusText.innerHTML = "Loaded: " + escapeHTML(title);
+
+    });
+
+}
+
+/* =========================
+   CLEAN PAGE
+========================= */
+
+function cleanPage(root){
+
+    removeBySelector(root, ".mw-editsection");
+    removeBySelector(root, ".toc");
+    removeBySelector(root, ".navbox");
+    removeBySelector(root, ".reflist");
+    removeBySelector(root, ".reference");
+    removeBySelector(root, "script");
+    removeBySelector(root, "style");
+    removeBySelector(root, ".error");
+    removeBySelector(root, ".nomobile");
+    removeBySelector(root, ".portable-infobox");
+    removeBySelector(root, ".wds-global-navigation-wrapper");
+    removeBySelector(root, ".fandom-community-header__background");
+    removeBySelector(root, ".page__right-rail");
+    removeBySelector(root, ".global-footer");
+    removeBySelector(root, ".license-description");
+    removeBySelector(root, ".noprint");
+    removeBySelector(root, ".ambox");
+    removeBySelector(root, ".notice");
+    removeBySelector(root, ".shortdescription");
+    removeBySelector(root, ".mw-cite-backlink");
+    removeBySelector(root, ".reference-text");
+    removeBySelector(root, ".audio-button");
+    removeBySelector(root, ".tabber");
+    removeBySelector(root, ".tabs");
+    removeBySelector(root, ".gallery");
+    removeBySelector(root, ".mw-parser-output > aside");
+
+    var tables = root.getElementsByTagName("table");
+    var i;
+
+    for(i = 0; i < tables.length; i++){
+        tables[i].style.display = "table";
+        tables[i].style.visibility = "visible";
+        tables[i].hidden = false;
+    }
+
+    var links = root.getElementsByTagName("a");
+
+    for(i = 0; i < links.length; i++){
+
+        var link = links[i];
+        var title = link.getAttribute("title");
+        var href = link.getAttribute("href");
+        var text = link.textContent || link.innerText || "";
+        var imgs = link.getElementsByTagName("img");
+
+        if(imgs.length > 0 && text.replace(/^\s+|\s+$/g, "").length < 2 && title){
+            link.innerHTML = escapeHTML(title);
+        }
+
+        if(href && href.indexOf("http") === 0){
+            link.setAttribute("target", "_blank");
+            continue;
+        }
+
+        var pageTitle = title;
+
+        if(!pageTitle && href && href.indexOf("/wiki/") === 0){
+            pageTitle = decodeURIComponent(href.replace("/wiki/", "")).replace(/_/g, " ");
+        }
+
+        if(pageTitle){
+            link.setAttribute("href", "#");
+            link.setAttribute("data-page-title", pageTitle);
+        }
+
+    }
+
+    var images = root.getElementsByTagName("img");
+
+    while(images.length > 0){
+        images[0].parentNode.removeChild(images[0]);
+    }
+
+    var paragraphs = root.getElementsByTagName("p");
+
+    for(i = paragraphs.length - 1; i >= 0; i--){
+        var txt = paragraphs[i].textContent || paragraphs[i].innerText || "";
+        if(txt.replace(/^\s+|\s+$/g, "") === ""){
+            paragraphs[i].parentNode.removeChild(paragraphs[i]);
+        }
+    }
+
+}
+
+function removeBySelector(root, selector){
+
+    if(!root.querySelectorAll){
+        return;
+    }
+
+    var elements = root.querySelectorAll(selector);
+
+    for(var i = elements.length - 1; i >= 0; i--){
+        if(elements[i].parentNode){
+            elements[i].parentNode.removeChild(elements[i]);
+        }
+    }
+
+}
+
+/* =========================
+   INTERNAL LINK HANDLING
+========================= */
+
+function attachInternalLinks(){
+
+    var links = content.getElementsByTagName("a");
+
+    for(var i = 0; i < links.length; i++){
+
+        var title = links[i].getAttribute("data-page-title");
+
+        if(title){
+
+            links[i].onclick = function(){
+
+                var targetTitle = this.getAttribute("data-page-title");
+
+                if(targetTitle){
+                    loadPage(targetTitle);
                 }
 
-                var tagName = node.tagName.toLowerCase();
-                var results = "";
+                return false;
 
-                switch (tagName) {
-                    case "h1":
-                        results += "\n\n# " + traverseChildren(node) + "\n\n";
-                        break;
-                    case "h2":
-                        results += "\n\n## " + traverseChildren(node) + "\n\n";
-                        break;
-                    case "h3":
-                        results += "\n\n### " + traverseChildren(node) + "\n\n";
-                        break;
-                    case "h4":
-                        results += "\n\n#### " + traverseChildren(node) + "\n\n";
-                        break;
-                    case "h5":
-                        results += "\n\n##### " + traverseChildren(node) + "\n\n";
-                        break;
-                    case "h6":
-                        results += "\n\n###### " + traverseChildren(node) + "\n\n";
-                        break;
-                    case "p":
-                        var paragraphText = traverseChildren(node).trim();
-                        if (paragraphText) {
-                            results += "\n\n" + paragraphText + "\n\n";
-                        }
-                        break;
-                    case "strong":
-                    case "b":
-                        results += " **" + traverseChildren(node).trim() + "** ";
-                        break;
-                    case "em":
-                    case "i":
-                        results += " *" + traverseChildren(node).trim() + " * ";
-                        break;
-                    case "code":
-                        results += " `" + traverseChildren(node) + "` ";
-                        break;
-                    case "pre":
-                        results += "\n```\n" + traverseChildren(node) + "\n```\n";
-                        break;
-                    case "blockquote":
-                        results += "\n> " + traverseChildren(node).replace(/\n/g, "\n> ") + "\n";
-                        break;
-                    case "br":
-                        results += "\n";
-                        break;
-                    case "ul":
-                        results += "\n" + traverseChildren(node, listDepth + 1);
-                        break;
-                    case "ol":
-                        results += "\n" + traverseChildren(node, listDepth + 1);
-                        break;
-                    case "li":
-                        var indent = "  ".repeat(Math.max(0, listDepth - 1));
-                        var bullet = node.parentNode && node.parentNode.tagName.toLowerCase() === "ol" ? "1. " : "- ";
-                        results += indent + bullet + traverseChildren(node).trim() + "\n";
-                        break;
-                    case "a":
-                        var linkText = traverseChildren(node).trim();
-                        var href = node.getAttribute("href");
-                        if (linkText && href) {
-                            results += "[" + linkText + "](" + href + ")";
-                        } else {
-                            results += linkText;
-                        }
-                        break;
-                    case "img":
-                        break;
-                    case "table":
-                        results += parseTableNode(node);
-                        break;
-                    default:
-                        results += traverseChildren(node, listDepth);
-                }
+            };
 
-                return results;
+        }
+
+    }
+
+}
+
+/* =========================
+   LOAD WIKI INDEX
+========================= */
+
+function loadWikiIndex(){
+
+    content.innerHTML = "";
+    statusText.innerHTML = "Loading page list...";
+
+    var pages = [];
+
+    function loadBatch(apcontinue){
+
+        var url =
+            API +
+            "?origin=*" +
+            "&action=query" +
+            "&list=allpages" +
+            "&aplimit=500" +
+            "&format=json";
+
+        if(apcontinue){
+            url += "&apcontinue=" + encodeURIComponent(apcontinue);
+        }
+
+        getJSON(url, function(error, data){
+
+            if(error){
+                statusText.innerHTML = error;
+                return;
             }
 
-            function traverseChildren(node, listDepth = 0) {
-                var val = "";
-                for (var i = 0; i < node.childNodes.length; i++) {
-                    val += traverse(node.childNodes[i], listDepth);
+            if(data.query && data.query.allpages){
+
+                for(var i = 0; i < data.query.allpages.length; i++){
+                    pages.push(data.query.allpages[i]);
                 }
-                return val;
+
             }
 
-            // Enhanced Table Parser: Converted cell values retain rich nested formats (bold, links, italics)
-            function parseTableNode(table) {
-                var markdown = "\n\n";
-                var rows = table.querySelectorAll("tr");
-                if (rows.length === 0) return "";
+            statusText.innerHTML = "Loaded " + pages.length + " page names...";
 
-                var headerRow = true;
-                
-                rows.forEach(function(row) {
-                    var cells = row.querySelectorAll("th, td");
-                    if (cells.length === 0) return;
-
-                    var cellTexts = Array.from(cells).map(function(cell) {
-                        var cellText = traverseChildren(cell).trim();
-                        return cellText.replace(/\|/g, "\\|").replace(/\r?\n|\r/g, " ").trim();
-                    });
-
-                    markdown += "| " + cellTexts.join(" | ") + " |\n";
-
-                    if (headerRow) {
-                        var separators = cellTexts.map(function() { return "---"; });
-                        markdown += "| " + separators.join(" | ") + " |\n";
-                        headerRow = false;
-                    }
-                });
-
-                return markdown + "\n\n";
+            if(data["continue"] && data["continue"].apcontinue){
+                loadBatch(data["continue"].apcontinue);
+            }else{
+                showIndex(pages);
             }
 
-            return traverse(rootNode).replace(/\n{3,}/g, "\n\n").trim();
-        }
+        });
 
-        function removeBySelector(root, selector) {
-            if (!root.querySelectorAll) return;
-            var elements = root.querySelectorAll(selector);
-            for (var i = elements.length - 1; i >= 0; i--) {
-                if (elements[i].parentNode) {
-                    elements[i].parentNode.removeChild(elements[i]);
-                }
-            }
-        }
+    }
 
-        /* ========================================================================
-           MARKDOWN RENDER ENGINE (FOR VISUAL PREVIEW TAB)
-           ======================================================================== */
-        function renderMarkdownToHTML(md) {
-            var lines = md.split('\n');
-            var html = "";
-            var inTable = false;
-            var tableRows = [];
+    loadBatch("");
 
-            for (var i = 0; i < lines.length; i++) {
-                var line = lines[i].trim();
-                
-                if (line.startsWith('|')) {
-                    if (!inTable) {
-                        inTable = true;
-                        tableRows = [];
-                    }
-                    tableRows.push(line);
-                } else {
-                    if (inTable) {
-                        html += buildHTMLTable(tableRows);
-                        inTable = false;
-                    }
-                    
-                    if (line.startsWith('# ')) {
-                        html += "<h1>" + escapeHTML(line.substring(2)) + "</h1>";
-                    } else if (line.startsWith('## ')) {
-                        html += "<h2>" + escapeHTML(line.substring(3)) + "</h2>";
-                    } else if (line.startsWith('### ')) {
-                        html += "<h3>" + escapeHTML(line.substring(4)) + "</h3>";
-                    } else if (line.startsWith('- ') || line.startsWith('* ')) {
-                        html += "<ul><li>" + escapeHTML(line.substring(2)) + "</li></ul>";
-                    } else if (line !== "") {
-                        var inline = escapeHTML(line)
-                            .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" style="color:blue;text-decoration:underline;">$1</a>')
-                            .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-                            .replace(/\*(.*?)\*/g, "<em>$1</em>");
-                        html += "<p>" + inline + "</p>";
-                    }
-                }
-            }
-            if (inTable) {
-                html += buildHTMLTable(tableRows);
-            }
-            return html;
-        }
+}
 
-        function buildHTMLTable(rows) {
-            var cleanRows = rows.filter(function(r) {
-                return !r.match(/^\|\s*[-:| ]+$/);
-            });
+function showIndex(pages){
 
-            if (cleanRows.length === 0) return "";
+    content.innerHTML = "";
 
-            var html = '<table border="1" style="border-collapse: collapse; width: 100%; margin: 15px 0; font-family: sans-serif;">';
-            cleanRows.forEach(function(row, index) {
-                var cells = row.split('|').map(function(c) { return c.trim(); });
-                if (cells[0] === "") cells.shift();
-                if (cells[cells.length - 1] === "") cells.pop();
+    for(var i = 0; i < pages.length; i++){
 
-                html += '<tr>';
-                cells.forEach(function(cell) {
-                    var tag = index === 0 ? 'th' : 'td';
-                    var bg = index === 0 ? 'background-color:#eee;' : '';
-                    
-                    var inlineCell = cell
-                        .replace(/\\\|/g, "|") 
-                        .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" style="color:blue;text-decoration:underline;">$1</a>')
-                        .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-                        .replace(/\*(.*?)\*/g, "<em>$1</em>");
+        var title = pages[i].title;
 
-                    html += '<' + tag + ' style="border:1px solid black; padding:8px; text-align:left;' + bg + '">' + inlineCell + '</' + tag + '>';
-                });
-                html += '</tr>';
-            });
-            html += '</table>';
-            return html;
-        }
+        var div = document.createElement("div");
+        var link = document.createElement("a");
 
-        /* ========================================================================
-           METADATA INITIATION (GET ALL PAGES - FULL RANGE EXTENSION)
-           ======================================================================= */
-        function fetchWikiCatalog(apiEndpoint, callback) {
-            var pages = [];
-            logToConsole("Resolving entire MediaWiki database index. This covers all 50,000+ entries...", "info");
+        link.appendChild(document.createTextNode(title));
+        link.setAttribute("href", "#");
+        link.setAttribute("data-page-title", title);
 
-            function loadBatch(apcontinue) {
-                var url = apiEndpoint +
-                    "?origin=*" +
-                    "&action=query" +
-                    "&list=allpages" +
-                    "&aplimit=500" +
-                    "&format=json";
+        div.appendChild(link);
+        content.appendChild(div);
 
-                if (apcontinue) {
-                    url += "&apcontinue=" + encodeURIComponent(apcontinue);
-                }
+    }
 
-                fetch(url)
-                    .then(function(res) { 
-                        if(!res.ok) throw new Error("HTTP connection failed status: " + res.status);
-                        return res.json(); 
-                    })
-                    .then(function(data) {
-                        if (data.query && data.query.allpages) {
-                            for (var i = 0; i < data.query.allpages.length; i++) {
-                                pages.push(data.query.allpages[i].title);
-                            }
-                        }
+    attachInternalLinks();
 
-                        statusText.innerHTML = "Indexed pages: " + pages.length;
-                        
-                        if (data["continue"] && data["continue"].apcontinue) {
-                            loadBatch(data["continue"].apcontinue);
-                        } else {
-                            logToConsole("Loaded total catalog mapping: " + pages.length + " pages fully indexed.", "success");
-                            callback(null, pages);
-                        }
-                    })
-                    .catch(function(err) {
-                        logToConsole("Metadata index fetch error: " + err.message, "error");
-                        callback(err.message, null);
-                    });
-            }
+    statusText.innerHTML = "Wiki index loaded: " + pages.length + " pages.";
 
-            loadBatch("");
-        }
+}
 
-        /* ========================================================================
-           PAGE DOWNLOAD ROUTINES WITH BUILT-IN EXPONENTIAL BACKOFF
-           ======================================================================== */
-        function fetchPageContent(apiEndpoint, title, callback, retries) {
-            if (typeof retries === 'undefined') retries = 3;
+/* =========================
+   UTILS
+========================= */
 
-            var url = apiEndpoint +
-                "?origin=*" +
-                "&action=parse" +
-                "&page=" + encodeURIComponent(title) +
-                "&prop=text" +
-                "&format=json";
+function escapeHTML(text){
 
-            fetch(url)
-                .then(function(res) {
-                    if (res.status === 429 && retries > 0) {
-                        var delay = 1000 * (4 - retries);
-                        logToConsole("Rate limit alert (429) on '" + title + "'. Re-requesting in " + delay + "ms...", "warn");
-                        setTimeout(function() {
-                            fetchPageContent(apiEndpoint, title, callback, retries - 1);
-                        }, delay);
-                        return;
-                    }
-                    if (!res.ok) throw new Error("HTTP connection code: " + res.status);
-                    return res.json();
-                })
-                .then(function(data) {
-                    if (!data || !data.parse) {
-                        throw new Error("Missing response parameters during page parse.");
-                    }
-                    
-                    var html = data.parse.text["*"];
-                    var doc = globalDOMParser.parseFromString(html, "text/html");
-                    var markdown = htmlToMarkdown(doc.body);
+    return String(text)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
 
-                    callback(null, markdown);
-                })
-                .catch(function(err) {
-                    if (retries > 0) {
-                        logToConsole("Retrying request on '" + title + "' (" + err.message + ")...", "warn");
-                        setTimeout(function() {
-                            fetchPageContent(apiEndpoint, title, callback, retries - 1);
-                        }, 1000);
-                    } else {
-                        logToConsole("Failed compilation task on page: '" + title + "'", "error");
-                        callback(err.message, null);
-                    }
-                });
-        }
+}
 
-        /* ========================================================================
-           WIKI TO MARKDOWN COMPILATION ARCHITECTURE (STATIC 2000 CONNECTIONS)
-           ======================================================================== */
-        function executeWikiConversion() {
-            var apiEndpoint = "https://genshin-impact.fandom.com/api.php";
+/* =========================
+   BUTTON EVENTS
+========================= */
 
-            // UI adjustments
-            statusText.innerHTML = "Opening index connection...";
-            downloadButton.disabled = true;
-            
-            document.getElementById("dashboardWrapper").style.display = "block";
-            logToConsole("Initializing entire database extraction sequence.", "info");
+searchButton.onclick = function(){
+    searchPage();
+    return false;
+};
 
-            fetchWikiCatalog(apiEndpoint, function(error, pages) {
-                if (error) {
-                    statusText.innerHTML = "Index compilation failure: " + error;
-                    resetTriggerButton();
-                    return;
-                }
+indexButton.onclick = function(){
+    loadWikiIndex();
+    return false;
+};
 
-                // Tracking systems
-                var results = new Array(pages.length);
-                globalTitleMap = {};
-                for (var i = 0; i < pages.length; i++) {
-                    var sanitizedTitle = pages[i].replace(/[\\/:*?"<>|]/g, "").trim();
-                    globalTitleMap[pages[i].toLowerCase().trim()] = sanitizedTitle + ".md";
-                }
+searchInput.onkeydown = function(e){
 
-                var completedCount = 0;
-                var errorCount = 0;
-                var failedIndices = [];
+    e = e || window.event;
 
-                // STATIC 2000 CONNECTIONS CONFIGURATION
-                var maxThreads = 2000;         // Static preset (no increase/decrease)
-                var activeWorkersCount = 0;    // Currently running fetch loops
-                var delayValue = 0;
+    var key = e.keyCode || e.which;
 
-                var queue = [];
-                for (var i = 0; i < pages.length; i++) {
-                    queue.push(i);
-                }
+    if(key === 13){
+        searchPage();
+        return false;
+    }
 
-                var startTime = Date.now();
-                var lastCompletedCount = 0;
-                var lastReportTime = startTime;
+};
 
-                // Telemetry Monitor Interval (No auto-tuning logic)
-                var speedInterval = setInterval(function() {
-                    var now = Date.now();
-                    var duration = (now - lastReportTime) / 1000;
-                    var processed = completedCount - lastCompletedCount;
-                    var rps = duration > 0 ? (processed / duration) : 0;
-                    
-                    speedometer.innerHTML = "Speed: " + rps.toFixed(1) + " pages/sec | Active Connections: " + activeWorkersCount;
-                    adaptiveStatus.innerHTML = "Status: Running static 2000 parallel threads pool.";
-                    
-                    if (completedCount === pages.length) {
-                        clearInterval(speedInterval);
-                        adaptiveStatus.innerHTML = "Task Completed.";
-                    }
-                    
-                    lastReportTime = now;
-                    lastCompletedCount = completedCount;
-                }, 1000);
-
-                var progressBar = document.getElementById("progressBar");
-                var dashTotal = document.getElementById("dashTotal");
-                var dashDownloaded = document.getElementById("dashDownloaded");
-                var dashActive = document.getElementById("dashActive");
-                var dashErrors = document.getElementById("dashErrors");
-                var liveFeed = document.getElementById("liveFeed");
-                var retryControlsContainer = document.getElementById("retryControlsContainer");
-                var retryFailedBtn = document.getElementById("retryFailedBtn");
-                var forceBuildBtn = document.getElementById("forceBuildBtn");
-
-                dashTotal.textContent = pages.length;
-
-                var feedItems = [];
-                function pushToLiveFeed(title, status, index) {
-                    var badge = status === "DONE" ? "SUCCESS" : "FAILED";
-                    var logLine = "<div>#" + (index + 1) + " " + escapeHTML(title) + " - [" + badge + "]</div>";
-                    
-                    feedItems.push(logLine);
-                    if (feedItems.length > 5) {
-                        feedItems.shift();
-                    }
-                    liveFeed.innerHTML = feedItems.join("");
-                }
-
-                function updateDashboard() {
-                    var percent = ((completedCount / pages.length) * 100).toFixed(1);
-                    progressBar.value = percent;
-                    dashDownloaded.textContent = completedCount;
-                    dashActive.textContent = activeWorkersCount;
-                    dashErrors.textContent = errorCount;
-                    
-                    statusText.innerHTML = "Downloading pages: " + completedCount + " / " + pages.length;
-                }
-
-                function launchWorker() {
-                    if (queue.length === 0 || activeWorkersCount >= maxThreads) return;
-
-                    activeWorkersCount++;
-                    var taskIndex = queue.shift();
-                    var title = pages[taskIndex];
-
-                    fetchPageContent(apiEndpoint, title, function(err, markdown) {
-                        activeWorkersCount--;
-                        completedCount++;
-
-                        if (!err) {
-                            results[taskIndex] = {
-                                title: title,
-                                md: markdown
-                            };
-                            pushToLiveFeed(title, "DONE", taskIndex);
-
-                            liveMarkdownConsole.value = markdown;
-                            liveRenderedConsole.innerHTML = "<h2>" + escapeHTML(title) + "</h2>" + renderMarkdownToHTML(markdown);
-
-                        } else {
-                            errorCount++;
-                            failedIndices.push(taskIndex);
-                            results[taskIndex] = {
-                                title: title,
-                                md: "# " + title + "\n\n*Error: Failed to fetch online content.*"
-                            };
-                            pushToLiveFeed(title, "FAILED", taskIndex);
-                        }
-
-                        if (completedCount % 5 === 0 || completedCount === pages.length) {
-                            updateDashboard();
-                        }
-
-                        if (completedCount % 500 === 0 || completedCount === pages.length) {
-                            logToConsole("Telemetry: Progress check " + completedCount + " / " + pages.length + " pages done.", "info");
-                        }
-
-                        if (completedCount === pages.length) {
-                            updateDashboard();
-                            
-                            if (errorCount > 0) {
-                                logToConsole("Task complete with " + errorCount + " system connection failures.", "warn");
-                                statusText.innerHTML = "Finished. Resolve offline errors or force pack package.";
-                                retryFailedBtn.textContent = "Retry " + errorCount + " Failures";
-                                retryControlsContainer.style.display = "block";
-                            } else {
-                                packageOutputArchive(results);
-                            }
-                        } else {
-                            if (activeWorkersCount < maxThreads) {
-                                if (delayValue > 0) {
-                                    setTimeout(launchWorker, delayValue);
-                                } else {
-                                    launchWorker();
-                                }
-                            }
-                        }
-                    });
-                }
-
-                retryFailedBtn.onclick = function() {
-                    retryControlsContainer.style.display = "none";
-                    logToConsole("Retrying failed threads...", "info");
-
-                    queue = failedIndices.slice();
-                    completedCount -= failedIndices.length;
-                    errorCount = 0;
-                    failedIndices = [];
-
-                    updateDashboard();
-
-                    var startRetryCount = Math.min(maxThreads, queue.length);
-                    for (var w = 0; w < startRetryCount; w++) {
-                        launchWorker();
-                    }
-                };
-
-                forceBuildBtn.onclick = function() {
-                    retryControlsContainer.style.display = "none";
-                    logToConsole("By-passing failures. Building package now...", "warn");
-                    packageOutputArchive(results);
-                };
-
-                // Boot exactly up to 2,000 parallel workers from start
-                var startingWorkers = Math.min(maxThreads, queue.length);
-                logToConsole("Spawning baseline active connections of " + startingWorkers + " parallel threads...", "info");
-                for (var w = 0; w < startingWorkers; w++) {
-                    launchWorker();
-                }
-
-                updateDashboard();
-            });
-        }
-
-        /* ========================================================================
-           ZIP COMPILATION AND DOWNLOAD EXPORTS
-           ======================================================================== */
-        function packageOutputArchive(resultsData) {
-            statusText.innerHTML = "Packaging file format...";
-            logToConsole("Starting ZIP compilation. This might take a moment due to page count size...", "info");
-
-            var zip = new JSZip();
-            zip.file("README.md", "# Wiki Markdown Export\n\nGenerated automatically via dynamic parser.");
-
-            for (var i = 0; i < resultsData.length; i++) {
-                var item = resultsData[i];
-                if (!item) continue;
-
-                var fileName = globalTitleMap[item.title.toLowerCase().trim()] || (item.title + ".md");
-                zip.file(fileName, item.md);
-            }
-
-            logToConsole("Compressing folders inside ZIP library...", "info");
-            zip.generateAsync({ type: "blob" })
-                .then(function(blob) {
-                    saveAs(blob, "Wiki_Markdown_Export.zip");
-                    finalizeExportState();
-                })
-                .catch(function(err) {
-                    logToConsole("Compression failed: " + err.message, "error");
-                    resetTriggerButton();
-                });
-        }
-
-        function finalizeExportState() {
-            statusText.innerHTML = "Download successfully triggered!";
-            logToConsole("Markdown ZIP build completed!", "success");
-            resetTriggerButton();
-        }
-
-        function resetTriggerButton() {
-            downloadButton.disabled = false;
-        }
-
-        function escapeHTML(text) {
-            return String(text)
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")
-                .replace(/"/g, "&quot;");
-        }
-
-        downloadButton.onclick = function() {
-            executeWikiConversion();
-            return false;
-        };
-    </script>
+</script>
 
 </body>
 </html>

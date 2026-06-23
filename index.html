@@ -111,7 +111,8 @@ a{
 <p id="status"></p>
 <div id="content"></div>
 
-<a href="javascript:void(0);" class="scroll-top" onclick="window.scrollTo(0,0); return false;">↑</a>
+<a href="javascript:void(0);" class="scroll-top" onclick="scrollToTop(); return false;">↑</a>
+
 <script type="text/javascript">
 
 var API = "https://genshin-impact.fandom.com/api.php";
@@ -143,6 +144,44 @@ function getJSON(url, callback){
 
     xhr.open("GET", url, true);
     xhr.send(null);
+}
+
+/* SCROLL TO TOP */
+function scrollToTop(){
+    if(window.scrollTo){
+        window.scrollTo(0,0);
+    }
+
+    document.body.scrollTop = 0;
+    document.documentElement.scrollTop = 0;
+}
+
+/* FIX WIKI LINKS */
+function fixWikiLinks(container){
+
+    var links = container.getElementsByTagName("a");
+
+    for(var i = 0; i < links.length; i++){
+
+        links[i].onclick = function(){
+
+            var href = this.getAttribute("href");
+
+            if(!href){
+                return false;
+            }
+
+            if(href.indexOf("/wiki/") === 0){
+                var title = href.replace("/wiki/", "");
+                title = title.split("#")[0];
+                title = decodeURIComponent(title.replace(/_/g, " "));
+                loadPage(title);
+                return false;
+            }
+
+            return false;
+        };
+    }
 }
 
 /* AUTOCOMPLETE */
@@ -265,10 +304,12 @@ function loadPage(title){
         var temp = document.createElement("div");
         temp.innerHTML = data.parse.text["*"];
 
+        fixWikiLinks(temp);
+
         content.innerHTML = "<h2>" + title + "</h2>";
         content.appendChild(temp);
 
-        window.scrollTo(0,0);
+        scrollToTop();
 
         statusText.innerHTML = "Loaded: " + title;
 

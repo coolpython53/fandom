@@ -28,26 +28,9 @@ button{
     font-size:18px;
 }
 
-/* AUTOCOMPLETE BOX */
-#suggestions{
-    border:1px solid black;
-    max-width:260px;
-    background:white;
-    position:absolute;
-    z-index:9999;
+img{
+    display:none;
 }
-
-.suggestion{
-    padding:6px;
-    cursor:pointer;
-    border-bottom:1px solid #ddd;
-}
-
-.suggestion:hover{
-    background:#eee;
-}
-
-img{ display:none; }
 
 table{
     border-collapse:collapse;
@@ -70,50 +53,47 @@ a{
     text-decoration:underline;
 }
 
-.page{ margin-top:30px; }
-
-#top{ position:absolute; top:0; }
-
-/* scroll button */
-.scroll-top{
-    position:fixed;
-    right:16px;
-    bottom:20px;
-    width:44px;
-    height:44px;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    background:black;
-    color:white;
-    text-decoration:none;
-    border-radius:50%;
-    font-size:20px;
-    opacity:0.75;
-    z-index:9999;
+.page{
+    margin-top:30px;
 }
 
+.loading{
+    color:gray;
+}
+
+.hidden{
+    display:none;
+}
 </style>
 </head>
-
 <body>
-
-<div id="top"></div>
 
 <h1>Genshin Impact Wiki Reader</h1>
 
-<input id="search" placeholder="Search page..." autocomplete="off">
-<div id="suggestions"></div>
+<input id="search" placeholder="Search page...">
 
-<button id="searchButton" type="button">Search</button>
-<button id="indexButton" type="button">Load Wiki Index</button>
+<button id="searchButton" type="button">
+Search
+</button>
+
+<button id="indexButton" type="button">
+Load Wiki Index
+</button>
 
 <p id="status"></p>
+
 <div id="content"></div>
 
-<a href="javascript:void(0);" class="scroll-top" onclick="scrollToTop(); return false;">↑</a>
-
 <script type="text/javascript">
+/*
+Kindle-compatible version:
+- No async / await
+- No fetch()
+- No const / let
+- No arrow functions
+- No inline onclick
+- Uses XMLHttpRequest
+*/
 
 var API = "https://genshin-impact.fandom.com/api.php";
 
@@ -122,143 +102,55 @@ var statusText = document.getElementById("status");
 var searchInput = document.getElementById("search");
 var searchButton = document.getElementById("searchButton");
 var indexButton = document.getElementById("indexButton");
-var suggestionsBox = document.getElementById("suggestions");
 
-/* AJAX */
+/* =========================
+   BASIC AJAX
+========================= */
+
 function getJSON(url, callback){
+
     var xhr = new XMLHttpRequest();
 
     xhr.onreadystatechange = function(){
+
         if(xhr.readyState === 4){
+
             if(xhr.status >= 200 && xhr.status < 300){
+
                 try{
-                    callback(null, JSON.parse(xhr.responseText));
+                    var data = JSON.parse(xhr.responseText);
+                    callback(null, data);
                 }catch(e){
-                    callback("Parse error", null);
+                    callback("Could not read response.", null);
                 }
+
             }else{
-                callback("Request failed", null);
+                callback("Request failed. Status: " + xhr.status, null);
             }
+
         }
+
     };
 
     xhr.open("GET", url, true);
     xhr.send(null);
+
 }
 
-/* SCROLL TO TOP */
-function scrollToTop(){
-    if(window.scrollTo){
-        window.scrollTo(0,0);
-    }
+/* =========================
+   SEARCH
+========================= */
 
-    document.body.scrollTop = 0;
-    document.documentElement.scrollTop = 0;
-}
-
-/* FIX WIKI LINKS */
-function fixWikiLinks(container){
-
-    var links = container.getElementsByTagName("a");
-
-    for(var i = 0; i < links.length; i++){
-
-        links[i].onclick = function(){
-
-            var href = this.getAttribute("href");
-
-            if(!href){
-                return false;
-            }
-
-            if(href.indexOf("/wiki/") === 0){
-                var title = href.replace("/wiki/", "");
-                title = title.split("#")[0];
-                title = decodeURIComponent(title.replace(/_/g, " "));
-                loadPage(title);
-                return false;
-            }
-
-            return false;
-        };
-    }
-}
-
-/* AUTOCOMPLETE */
-function showSuggestions(list){
-
-    suggestionsBox.innerHTML = "";
-
-    if(!list || list.length === 0){
-        suggestionsBox.style.display = "none";
-        return;
-    }
-
-    for(var i = 0; i < list.length; i++){
-
-        (function(item){
-
-            var div = document.createElement("div");
-            div.className = "suggestion";
-            div.innerHTML = item.title;
-
-            div.onclick = function(){
-                searchInput.value = item.title;
-                suggestionsBox.style.display = "none";
-                loadPage(item.title);
-            };
-
-            suggestionsBox.appendChild(div);
-
-        })(list[i]);
-
-    }
-
-    suggestionsBox.style.display = "block";
-}
-
-/* LIVE SEARCH */
-function updateSuggestions(){
-
-    var q = searchInput.value.replace(/^\s+|\s+$/g, "");
-
-    if(!q){
-        suggestionsBox.style.display = "none";
-        return;
-    }
-
-    var url =
-        API +
-        "?origin=*" +
-        "&action=query" +
-        "&list=search" +
-        "&srlimit=5" +
-        "&srsearch=" +
-        encodeURIComponent(q) +
-        "&format=json";
-
-    getJSON(url, function(err, data){
-
-        if(err || !data.query){
-            return;
-        }
-
-        showSuggestions(data.query.search);
-
-    });
-}
-
-/* SEARCH */
 function searchPage(){
 
     var query = searchInput.value.replace(/^\s+|\s+$/g, "");
 
     if(!query){
-        statusText.innerHTML = "Enter a page name.";
+        statusText.innerHTML = "Please enter a page name.";
         return;
     }
 
-    suggestionsBox.style.display = "none";
+    statusText.innerHTML = "Searching...";
 
     var url =
         API +
@@ -269,22 +161,39 @@ function searchPage(){
         encodeURIComponent(query) +
         "&format=json";
 
-    getJSON(url, function(err, data){
+    getJSON(url, function(error, data){
 
-        if(err || !data.query || !data.query.search.length){
+        if(error){
+            statusText.innerHTML = error;
+            return;
+        }
+
+        if(
+            !data.query ||
+            !data.query.search ||
+            data.query.search.length === 0
+        ){
             statusText.innerHTML = "No results.";
             return;
         }
 
-        loadPage(data.query.search[0].title);
+        var firstResult = data.query.search[0];
+
+        content.innerHTML = "";
+
+        loadPage(firstResult.title);
 
     });
+
 }
 
-/* LOAD PAGE */
+/* =========================
+   LOAD PAGE
+========================= */
+
 function loadPage(title){
 
-    statusText.innerHTML = "Loading " + title + "...";
+    statusText.innerHTML = "Loading " + escapeHTML(title) + "...";
 
     var url =
         API +
@@ -292,57 +201,312 @@ function loadPage(title){
         "&action=parse" +
         "&page=" +
         encodeURIComponent(title) +
-        "&prop=text&format=json";
+        "&prop=text" +
+        "&format=json";
 
-    getJSON(url, function(err, data){
+    getJSON(url, function(error, data){
 
-        if(err || !data.parse){
-            statusText.innerHTML = "Load failed.";
+        if(error){
+            statusText.innerHTML = error;
             return;
         }
 
+        if(!data.parse){
+            statusText.innerHTML = "Failed to load page.";
+            return;
+        }
+
+        var html = data.parse.text["*"];
+
         var temp = document.createElement("div");
-        temp.innerHTML = data.parse.text["*"];
+        temp.innerHTML = html;
 
-        fixWikiLinks(temp);
+        cleanPage(temp);
 
-        content.innerHTML = "<h2>" + title + "</h2>";
-        content.appendChild(temp);
+        var page = document.createElement("div");
+        page.className = "page";
 
-        scrollToTop();
+        var titleElement = document.createElement("h2");
+        titleElement.appendChild(document.createTextNode(title));
+        page.appendChild(titleElement);
 
-        statusText.innerHTML = "Loaded: " + title;
+        var body = document.createElement("div");
+        body.innerHTML = temp.innerHTML;
+        page.appendChild(body);
+
+        content.innerHTML = "";
+        content.appendChild(page);
+
+        attachInternalLinks();
+
+        window.scrollTo(0, 0);
+
+        statusText.innerHTML = "Loaded: " + escapeHTML(title);
 
     });
+
 }
 
-/* EVENTS */
+/* =========================
+   CLEAN PAGE
+========================= */
+
+function cleanPage(root){
+
+    removeBySelector(root, ".mw-editsection");
+    removeBySelector(root, ".toc");
+    removeBySelector(root, ".navbox");
+    removeBySelector(root, ".reflist");
+    removeBySelector(root, ".reference");
+    removeBySelector(root, "script");
+    removeBySelector(root, "style");
+    removeBySelector(root, ".error");
+    removeBySelector(root, ".nomobile");
+    removeBySelector(root, ".portable-infobox");
+    removeBySelector(root, ".wds-global-navigation-wrapper");
+    removeBySelector(root, ".fandom-community-header__background");
+    removeBySelector(root, ".page__right-rail");
+    removeBySelector(root, ".global-footer");
+    removeBySelector(root, ".license-description");
+    removeBySelector(root, ".noprint");
+    removeBySelector(root, ".ambox");
+    removeBySelector(root, ".notice");
+    removeBySelector(root, ".shortdescription");
+    removeBySelector(root, ".mw-cite-backlink");
+    removeBySelector(root, ".reference-text");
+    removeBySelector(root, ".audio-button");
+    removeBySelector(root, ".tabber");
+    removeBySelector(root, ".tabs");
+    removeBySelector(root, ".gallery");
+    removeBySelector(root, ".mw-parser-output > aside");
+
+    var tables = root.getElementsByTagName("table");
+    var i;
+
+    for(i = 0; i < tables.length; i++){
+        tables[i].style.display = "table";
+        tables[i].style.visibility = "visible";
+        tables[i].hidden = false;
+    }
+
+    var links = root.getElementsByTagName("a");
+
+    for(i = 0; i < links.length; i++){
+
+        var link = links[i];
+        var title = link.getAttribute("title");
+        var href = link.getAttribute("href");
+        var text = link.textContent || link.innerText || "";
+        var imgs = link.getElementsByTagName("img");
+
+        if(imgs.length > 0 && text.replace(/^\s+|\s+$/g, "").length < 2 && title){
+            link.innerHTML = escapeHTML(title);
+        }
+
+        if(href && href.indexOf("http") === 0){
+            link.setAttribute("target", "_blank");
+            continue;
+        }
+
+        var pageTitle = title;
+
+        if(!pageTitle && href && href.indexOf("/wiki/") === 0){
+            pageTitle = decodeURIComponent(href.replace("/wiki/", "")).replace(/_/g, " ");
+        }
+
+        if(pageTitle){
+            link.setAttribute("href", "#");
+            link.setAttribute("data-page-title", pageTitle);
+        }
+
+    }
+
+    var images = root.getElementsByTagName("img");
+
+    while(images.length > 0){
+        images[0].parentNode.removeChild(images[0]);
+    }
+
+    var paragraphs = root.getElementsByTagName("p");
+
+    for(i = paragraphs.length - 1; i >= 0; i--){
+        var txt = paragraphs[i].textContent || paragraphs[i].innerText || "";
+        if(txt.replace(/^\s+|\s+$/g, "") === ""){
+            paragraphs[i].parentNode.removeChild(paragraphs[i]);
+        }
+    }
+
+}
+
+function removeBySelector(root, selector){
+
+    if(!root.querySelectorAll){
+        return;
+    }
+
+    var elements = root.querySelectorAll(selector);
+
+    for(var i = elements.length - 1; i >= 0; i--){
+        if(elements[i].parentNode){
+            elements[i].parentNode.removeChild(elements[i]);
+        }
+    }
+
+}
+
+/* =========================
+   INTERNAL LINK HANDLING
+========================= */
+
+function attachInternalLinks(){
+
+    var links = content.getElementsByTagName("a");
+
+    for(var i = 0; i < links.length; i++){
+
+        var title = links[i].getAttribute("data-page-title");
+
+        if(title){
+
+            links[i].onclick = function(){
+
+                var targetTitle = this.getAttribute("data-page-title");
+
+                if(targetTitle){
+                    loadPage(targetTitle);
+                }
+
+                return false;
+
+            };
+
+        }
+
+    }
+
+}
+
+/* =========================
+   LOAD WIKI INDEX
+========================= */
+
+function loadWikiIndex(){
+
+    content.innerHTML = "";
+    statusText.innerHTML = "Loading page list...";
+
+    var pages = [];
+
+    function loadBatch(apcontinue){
+
+        var url =
+            API +
+            "?origin=*" +
+            "&action=query" +
+            "&list=allpages" +
+            "&aplimit=500" +
+            "&format=json";
+
+        if(apcontinue){
+            url += "&apcontinue=" + encodeURIComponent(apcontinue);
+        }
+
+        getJSON(url, function(error, data){
+
+            if(error){
+                statusText.innerHTML = error;
+                return;
+            }
+
+            if(data.query && data.query.allpages){
+
+                for(var i = 0; i < data.query.allpages.length; i++){
+                    pages.push(data.query.allpages[i]);
+                }
+
+            }
+
+            statusText.innerHTML = "Loaded " + pages.length + " page names...";
+
+            if(data["continue"] && data["continue"].apcontinue){
+                loadBatch(data["continue"].apcontinue);
+            }else{
+                showIndex(pages);
+            }
+
+        });
+
+    }
+
+    loadBatch("");
+
+}
+
+function showIndex(pages){
+
+    content.innerHTML = "";
+
+    for(var i = 0; i < pages.length; i++){
+
+        var title = pages[i].title;
+
+        var div = document.createElement("div");
+        var link = document.createElement("a");
+
+        link.appendChild(document.createTextNode(title));
+        link.setAttribute("href", "#");
+        link.setAttribute("data-page-title", title);
+
+        div.appendChild(link);
+        content.appendChild(div);
+
+    }
+
+    attachInternalLinks();
+
+    statusText.innerHTML = "Wiki index loaded: " + pages.length + " pages.";
+
+}
+
+/* =========================
+   UTILS
+========================= */
+
+function escapeHTML(text){
+
+    return String(text)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+
+}
+
+/* =========================
+   BUTTON EVENTS
+========================= */
+
 searchButton.onclick = function(){
     searchPage();
     return false;
 };
 
 indexButton.onclick = function(){
-    alert("Index unchanged in this version");
+    loadWikiIndex();
     return false;
 };
 
-searchInput.oninput = function(){
-    updateSuggestions();
-};
-
-searchInput.onblur = function(){
-    setTimeout(function(){
-        suggestionsBox.style.display = "none";
-    }, 200);
-};
-
 searchInput.onkeydown = function(e){
+
     e = e || window.event;
-    if((e.keyCode || e.which) === 13){
+
+    var key = e.keyCode || e.which;
+
+    if(key === 13){
         searchPage();
         return false;
     }
+
 };
 
 </script>

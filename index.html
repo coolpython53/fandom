@@ -64,13 +64,37 @@ a{
 .hidden{
     display:none;
 }
+
+/* Suggestions box: plain black borders, big tap targets for e-ink */
+#suggestions{
+    width:274px;
+    border:1px solid black;
+    border-top:none;
+    background:white;
+    margin:0;
+    padding:0;
+}
+
+.suggestion{
+    display:block;
+    padding:8px 6px;
+    border-top:1px solid black;
+    color:black;
+    text-decoration:none;
+    font-size:18px;
+}
+
+.suggestion-active{
+    background:black;
+    color:white;
+}
 </style>
 </head>
 <body>
 
 <h1>Genshin Impact Wiki Reader</h1>
 
-<input id="search" placeholder="Search page...">
+<input id="search" placeholder="Search page..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
 
 <button id="searchButton" type="button">
 Search
@@ -79,6 +103,8 @@ Search
 <button id="indexButton" type="button">
 Load Wiki Index
 </button>
+
+<div id="suggestions" class="hidden"></div>
 
 <p id="status"></p>
 
@@ -102,6 +128,18 @@ var statusText = document.getElementById("status");
 var searchInput = document.getElementById("search");
 var searchButton = document.getElementById("searchButton");
 var indexButton = document.getElementById("indexButton");
+var suggestionBox = document.getElementById("suggestions");
+
+/* Suggestion settings */
+var SUGGEST_DELAY = 400;      /* ms to wait after typing stops (Kindle is slow) */
+var SUGGEST_MIN_CHARS = 2;    /* don't suggest for 1 letter */
+var SUGGEST_LIMIT = 8;
+
+var suggestTimer = null;
+var suggestRequestId = 0;
+var suggestCache = {};
+var lastSuggestQuery = "";
+var activeSuggestion = -1;
 
 /* =========================
    BASIC AJAX
@@ -138,12 +176,170 @@ function getJSON(url, callback){
 }
 
 /* =========================
+   SUGGESTIONS
+========================= */
+
+function trim(text){
+    return String(text).replace(/^\s+|\s+$/g, "");
+}
+
+function scheduleSuggestions(){
+
+    if(suggestTimer){
+        clearTimeout(suggestTimer);
+    }
+
+    suggestTimer = setTimeout(function(){
+        suggestTimer = null;
+        fetchSuggestions();
+    }, SUGGEST_DELAY);
+
+}
+
+function fetchSuggestions(){
+
+    var query = trim(searchInput.value);
+
+    if(query === lastSuggestQuery){
+        return;
+    }
+
+    lastSuggestQuery = query;
+
+    if(query.length < SUGGEST_MIN_CHARS){
+        hideSuggestions();
+        return;
+    }
+
+    var key = query.toLowerCase();
+
+    if(suggestCache.hasOwnProperty(key)){
+        showSuggestions(suggestCache[key]);
+        return;
+    }
+
+    /* Each request gets an id so slow, older responses are ignored */
+    suggestRequestId++;
+    var myId = suggestRequestId;
+
+    var url =
+        API +
+        "?origin=*" +
+        "&action=opensearch" +
+        "&namespace=0" +
+        "&limit=" + SUGGEST_LIMIT +
+        "&search=" +
+        encodeURIComponent(query) +
+        "&format=json";
+
+    getJSON(url, function(error, data){
+
+        if(myId !== suggestRequestId){
+            return;
+        }
+
+        if(error || !data || !data[1]){
+            hideSuggestions();
+            return;
+        }
+
+        suggestCache[key] = data[1];
+        showSuggestions(data[1]);
+
+    });
+
+}
+
+function showSuggestions(titles){
+
+    suggestionBox.innerHTML = "";
+    activeSuggestion = -1;
+
+    if(!titles || titles.length === 0){
+        hideSuggestions();
+        return;
+    }
+
+    for(var i = 0; i < titles.length; i++){
+
+        var item = document.createElement("a");
+        item.className = "suggestion";
+        item.setAttribute("href", "#");
+        item.setAttribute("data-page-title", titles[i]);
+        item.appendChild(document.createTextNode(titles[i]));
+
+        item.onclick = function(){
+            chooseSuggestion(this.getAttribute("data-page-title"));
+            return false;
+        };
+
+        suggestionBox.appendChild(item);
+
+    }
+
+    suggestionBox.className = "";
+
+}
+
+function hideSuggestions(){
+
+    suggestionBox.className = "hidden";
+    suggestionBox.innerHTML = "";
+    activeSuggestion = -1;
+
+}
+
+function chooseSuggestion(title){
+
+    if(suggestTimer){
+        clearTimeout(suggestTimer);
+        suggestTimer = null;
+    }
+
+    suggestRequestId++;          /* cancel any pending suggestion response */
+    searchInput.value = title;
+    lastSuggestQuery = trim(title);
+    hideSuggestions();
+
+    content.innerHTML = "";
+    loadPage(title);
+
+}
+
+function moveActiveSuggestion(step){
+
+    var items = suggestionBox.getElementsByTagName("a");
+
+    if(items.length === 0){
+        return;
+    }
+
+    if(activeSuggestion >= 0 && items[activeSuggestion]){
+        items[activeSuggestion].className = "suggestion";
+    }
+
+    activeSuggestion += step;
+
+    if(activeSuggestion < 0){
+        activeSuggestion = items.length - 1;
+    }
+    if(activeSuggestion >= items.length){
+        activeSuggestion = 0;
+    }
+
+    items[activeSuggestion].className = "suggestion suggestion-active";
+
+}
+
+/* =========================
    SEARCH
 ========================= */
 
 function searchPage(){
 
-    var query = searchInput.value.replace(/^\s+|\s+$/g, "");
+    var query = trim(searchInput.value);
+
+    hideSuggestions();
 
     if(!query){
         statusText.innerHTML = "Please enter a page name.";
@@ -202,6 +398,7 @@ function loadPage(title){
         "&page=" +
         encodeURIComponent(title) +
         "&prop=text" +
+        "&redirects=1" +
         "&format=json";
 
     getJSON(url, function(error, data){
@@ -227,7 +424,7 @@ function loadPage(title){
         page.className = "page";
 
         var titleElement = document.createElement("h2");
-        titleElement.appendChild(document.createTextNode(title));
+        titleElement.appendChild(document.createTextNode(data.parse.title || title));
         page.appendChild(titleElement);
 
         var body = document.createElement("div");
@@ -241,7 +438,7 @@ function loadPage(title){
 
         window.scrollTo(0, 0);
 
-        statusText.innerHTML = "Loaded: " + escapeHTML(title);
+        statusText.innerHTML = "Loaded: " + escapeHTML(data.parse.title || title);
 
     });
 
@@ -299,7 +496,7 @@ function cleanPage(root){
         var text = link.textContent || link.innerText || "";
         var imgs = link.getElementsByTagName("img");
 
-        if(imgs.length > 0 && text.replace(/^\s+|\s+$/g, "").length < 2 && title){
+        if(imgs.length > 0 && trim(text).length < 2 && title){
             link.innerHTML = escapeHTML(title);
         }
 
@@ -331,7 +528,7 @@ function cleanPage(root){
 
     for(i = paragraphs.length - 1; i >= 0; i--){
         var txt = paragraphs[i].textContent || paragraphs[i].innerText || "";
-        if(txt.replace(/^\s+|\s+$/g, "") === ""){
+        if(trim(txt) === ""){
             paragraphs[i].parentNode.removeChild(paragraphs[i]);
         }
     }
@@ -373,6 +570,7 @@ function attachInternalLinks(){
                 var targetTitle = this.getAttribute("data-page-title");
 
                 if(targetTitle){
+                    hideSuggestions();
                     loadPage(targetTitle);
                 }
 
@@ -392,6 +590,7 @@ function attachInternalLinks(){
 
 function loadWikiIndex(){
 
+    hideSuggestions();
     content.innerHTML = "";
     statusText.innerHTML = "Loading page list...";
 
@@ -502,11 +701,55 @@ searchInput.onkeydown = function(e){
 
     var key = e.keyCode || e.which;
 
-    if(key === 13){
-        searchPage();
+    /* Down / Up arrows move through suggestions (if the device has them) */
+    if(key === 40){
+        moveActiveSuggestion(1);
         return false;
     }
 
+    if(key === 38){
+        moveActiveSuggestion(-1);
+        return false;
+    }
+
+    /* Escape closes the list */
+    if(key === 27){
+        hideSuggestions();
+        return false;
+    }
+
+    if(key === 13){
+
+        var items = suggestionBox.getElementsByTagName("a");
+
+        if(activeSuggestion >= 0 && items[activeSuggestion]){
+            chooseSuggestion(items[activeSuggestion].getAttribute("data-page-title"));
+        }else{
+            searchPage();
+        }
+
+        return false;
+    }
+
+};
+
+/* keyup works on older Kindle browsers; oninput catches paste / autocorrect */
+searchInput.onkeyup = function(e){
+
+    e = e || window.event;
+
+    var key = e.keyCode || e.which;
+
+    if(key === 13 || key === 38 || key === 40 || key === 27){
+        return;
+    }
+
+    scheduleSuggestions();
+
+};
+
+searchInput.oninput = function(){
+    scheduleSuggestions();
 };
 
 </script>
